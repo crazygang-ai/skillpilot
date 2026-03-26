@@ -1,6 +1,19 @@
+import { execFile } from 'child_process'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { ClawHubSkill, ClawHubSkillDetail } from '../../shared/types'
 import * as networkProvider from './network-session-provider'
 import { CONTENT_CACHE_TTL_MS } from '../utils/constants'
+
+function execPromise(command: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, { timeout: 30000 }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr || err.message))
+      else resolve(stdout.trim())
+    })
+  })
+}
 
 const CONVEX_URL = 'https://wry-manatee-359.convex.cloud/api/query'
 
@@ -106,8 +119,27 @@ export async function content(slug: string): Promise<string> {
   }
 }
 
-export async function downloadArchive(slug: string, _version: string): Promise<string> {
-  return `https://clawhub.ai/skills/${slug}`
+const CONVEX_SITE_URL = 'https://wry-manatee-359.convex.site'
+
+export async function downloadAndExtract(slug: string): Promise<string> {
+  const url = `${CONVEX_SITE_URL}/api/v1/download?slug=${encodeURIComponent(slug)}`
+  const tmpDir = path.join(os.tmpdir(), 'skillpilot-clawhub', slug)
+
+  if (fs.existsSync(tmpDir)) {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
+  fs.mkdirSync(tmpDir, { recursive: true })
+
+  const zipPath = path.join(tmpDir, 'download.zip')
+  await execPromise('curl', ['-fsSL', '-o', zipPath, url])
+  await execPromise('unzip', ['-o', zipPath, '-d', tmpDir])
+
+  const entries = fs.readdirSync(tmpDir).filter(e => e !== 'download.zip' && e !== '__MACOSX')
+  const skillDir = entries.length === 1 && fs.statSync(path.join(tmpDir, entries[0])).isDirectory()
+    ? path.join(tmpDir, entries[0])
+    : tmpDir
+
+  return skillDir
 }
 
 function mapConvexItem(item: Record<string, unknown>): ClawHubSkill {

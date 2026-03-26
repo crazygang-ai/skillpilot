@@ -84,6 +84,9 @@ button, a {
   line-height: 1.7;
   color: var(--color-text-primary);
 }
+.markdown-body > :first-child {
+  margin-top: 0;
+}
 .markdown-body h1 {
   font-size: 1.5em;
   font-weight: 700;

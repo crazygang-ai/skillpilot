@@ -15,6 +15,7 @@ import * as gitService from './git-service'
 import * as commitHashCache from './commit-hash-cache'
 import * as skillMDParser from './skill-md-parser'
 import * as updateChecker from './update-checker'
+import * as clawHubService from './clawhub-service'
 import { FileSystemWatcher } from './file-system-watcher'
 
 export class SkillManager extends EventEmitter {
@@ -337,7 +338,7 @@ export class SkillManager extends EventEmitter {
 
   async checkAllUpdates(): Promise<void> {
     const updatable = this.skills.filter(
-      s => s.lockEntry && s.lockEntry.sourceType === 'github',
+      s => s.lockEntry && (s.lockEntry.sourceType === 'github' || s.lockEntry.sourceType === 'clawhub'),
     )
     await Promise.allSettled(updatable.map(s => this.checkForUpdate(s.id)))
   }
@@ -345,6 +346,11 @@ export class SkillManager extends EventEmitter {
   async updateSkill(skillId: string): Promise<void> {
     const skill = this.skills.find(s => s.id === skillId)
     if (!skill?.lockEntry) return
+
+    if (skill.lockEntry.sourceType === 'clawhub') {
+      await this.updateClawHubSkill(skill)
+      return
+    }
 
     try {
       const repoDir = await gitService.shallowClone(skill.lockEntry.sourceUrl)
@@ -384,6 +390,35 @@ export class SkillManager extends EventEmitter {
       await this.refresh()
     } catch (err) {
       console.error(`Failed to update skill ${skillId}:`, err)
+    }
+  }
+
+  private async updateClawHubSkill(skill: Skill): Promise<void> {
+    try {
+      const slug = skill.lockEntry!.source
+      const detail = await clawHubService.detail(slug)
+      const newVersion = detail.latestVersion
+      if (!newVersion) return
+
+      const sourceDir = await clawHubService.downloadAndExtract(slug)
+
+      const destDir = skill.canonicalPath
+      fs.rmSync(destDir, { recursive: true, force: true })
+      copyDirSync(sourceDir, destDir)
+
+      const now = new Date().toISOString()
+      lockFileManager.updateEntry(skill.id, {
+        ...skill.lockEntry!,
+        skillFolderHash: newVersion,
+        updatedAt: now,
+      })
+
+      this.updateStatuses.set(skill.id, 'upToDate')
+      this.cachedRemoteTreeHashes.delete(skill.id)
+
+      await this.refresh()
+    } catch (err) {
+      console.error(`Failed to update ClawHub skill ${skill.id}:`, err)
     }
   }
 
