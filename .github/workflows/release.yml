@@ -26,8 +26,6 @@ jobs:
 
       - name: Build macOS app
         run: pnpm build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
