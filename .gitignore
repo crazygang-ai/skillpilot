@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.tsbuildinfo
+.DS_Store
+.vite/
+*.local
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Environment
+.env
+.env.*

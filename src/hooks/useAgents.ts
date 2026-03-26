@@ -1,0 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
+import type { Agent } from '@/types'
+
+export function useAgents() {
+  return useQuery<Agent[]>({
+    queryKey: ['agents'],
+    queryFn: () => window.electronAPI.agents.detect(),
+    staleTime: 30_000,
+  })
+}

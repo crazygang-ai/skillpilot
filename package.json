@@ -1,0 +1,109 @@
+{
+  "name": "skillpilot",
+  "productName": "SkillPilot",
+  "version": "0.1.0",
+  "description": "Unified AI agent skill manager for macOS",
+  "main": "dist-electron/electron/main/index.js",
+  "author": "SkillPilot Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/skillpilot.git"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"pnpm run electron:dev\"",
+    "electron:dev": "wait-on http://localhost:5173 && tsc -p tsconfig.electron.json && electron .",
+    "build": "tsc -p tsconfig.electron.json && vite build",
+    "build:electron": "pnpm run build && electron-builder",
+    "build:mac": "pnpm run build && electron-builder --mac",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "tsc -p tsconfig.electron.json && playwright test",
+    "test:e2e:headed": "tsc -p tsconfig.electron.json && playwright test --headed",
+    "clean": "rm -rf dist dist-electron release node_modules/.vite"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "chokidar": "^4.0.3",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
+    "https-proxy-agent": "^8.0.0",
+    "i18next": "^25.8.20",
+    "js-yaml": "^4.1.0",
+    "keytar": "^7.9.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-i18next": "^16.5.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "socks-proxy-agent": "^9.0.0",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.27",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "concurrently": "^9.2.1",
+    "electron": "41.0.2",
+    "electron-builder": "26.0.12",
+    "playwright": "^1.58.2",
+    "postcss": "^8.5.8",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.0",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "com.skillpilot.app",
+    "productName": "SkillPilot",
+    "protocols": [
+      {
+        "name": "SkillPilot",
+        "schemes": [
+          "skillpilot"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "resources/**/*"
+    ],
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "keytar"
+    ]
+  }
+}
