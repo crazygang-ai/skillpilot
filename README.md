@@ -2,6 +2,7 @@
 
 *The desktop app for managing AI code agent skills.*
 
+[![CI](https://github.com/CrazyGang97/skillpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/CrazyGang97/skillpilot/actions/workflows/ci.yml)
 [![Electron](https://img.shields.io/badge/Electron-41-47848F?logo=electron)](https://www.electronjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -33,6 +34,11 @@
 - **Proxy Support** — HTTPS / SOCKS5 proxy with macOS Keychain-backed password storage
 - **Localization** — Full English and Simplified Chinese interface with in-app switching
 - **Auto-Refresh** — File system monitoring picks up CLI-side changes instantly
+
+## Requirements
+
+- **macOS** 13 (Ventura) or later
+- **Node.js** 20+ and **pnpm** (for building from source only)
 
 ## Installation
 
@@ -117,6 +123,16 @@ pnpm build:mac        # Build macOS app
 pnpm typecheck        # Type-check renderer + main process
 ```
 
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| macOS blocks the app on first launch | Run `xattr -cr /Applications/SkillPilot.app` or right-click → Open → click "Open" |
+| Agent not detected | Ensure the agent CLI is installed and available in `$PATH` |
+| Skills not syncing after CLI changes | Click the refresh button in the sidebar, or check that the skills directory exists |
+| GitHub imports fail behind a proxy | Configure proxy in Settings → Proxy (supports HTTPS and SOCKS5) |
+| Update check shows no updates | The skill must have been installed from a GitHub URL to support update detection |
+
 ## Contributing
 
 1. Fork the repository
@@ -127,3 +143,7 @@ pnpm typecheck        # Type-check renderer + main process
 ## License
 
 [MIT](LICENSE)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=CrazyGang97/skillpilot&type=Date)](https://star-history.com/#CrazyGang97/skillpilot&Date)
