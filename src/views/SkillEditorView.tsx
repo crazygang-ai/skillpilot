@@ -66,7 +66,7 @@ export default function SkillEditorView({ skillId, onClose }: SkillEditorViewPro
   return (
     <div className="flex h-full flex-col">
       {/* Top Bar */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-3">
+      <div className="flex items-center justify-between border-b border-border pl-20 pr-6 py-3">
         <h2 className="text-sm font-semibold text-text-primary">Edit Skill</h2>
         <div className="flex items-center gap-2">
           <button
