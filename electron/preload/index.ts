@@ -37,16 +37,6 @@ const electronAPI = {
       ipcRenderer.invoke('registry:search', query),
   },
 
-  // ClawHub
-  clawhub: {
-    search: (query: string, sort?: string) =>
-      ipcRenderer.invoke('clawhub:search', query, sort ?? 'downloads'),
-    detail: (slug: string) =>
-      ipcRenderer.invoke('clawhub:detail', slug),
-    content: (slug: string) =>
-      ipcRenderer.invoke('clawhub:content', slug),
-  },
-
   // Content Fetcher
   content: {
     fetch: (source: string, skillId: string) =>

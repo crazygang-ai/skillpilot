@@ -5,7 +5,6 @@ import { useUpdateStore } from '@/stores/updateStore'
 import Sidebar from '@/components/layout/Sidebar'
 import Dashboard from '@/views/Dashboard'
 import RegistryBrowser from '@/views/RegistryBrowser'
-import ClawHubBrowser from '@/views/ClawHubBrowser'
 import SettingsModal from '@/views/SettingsModal'
 import SkillEditorView from '@/views/SkillEditorView'
 import Notifications from '@/components/ui/Notifications'
@@ -37,7 +36,6 @@ function MainContent() {
       <div className="flex-1 overflow-hidden">
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'registry' && <RegistryBrowser />}
-        {currentView === 'clawhub' && <ClawHubBrowser />}
         {currentView === 'settings' && <SettingsModal />}
       </div>
 

@@ -2,13 +2,19 @@ import { test, expect } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 import path from 'path'
 
-const MAIN_JS = path.join(__dirname, '../../dist-electron/main/index.js')
+const MAIN_JS = path.join(__dirname, '../../dist-electron/electron/main/index.js')
+
+function createLaunchEnv() {
+  const env = { ...process.env, NODE_ENV: 'test' }
+  delete env.ELECTRON_RUN_AS_NODE
+  return env
+}
 
 test.describe('Registry Flow', () => {
   test('navigates to skills.sh registry browser', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
@@ -33,26 +39,17 @@ test.describe('Registry Flow', () => {
     await electronApp.close()
   })
 
-  test('navigates to ClawHub browser', async () => {
+  test('sidebar only shows supported top-level views', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Navigate to ClawHub view
-    const clawHubBtn = window.locator('button:has-text("ClawHub")').first()
-    if (await clawHubBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await clawHubBtn.click()
-      await window.waitForTimeout(1000)
-
-      // Should show search or content area
-      const content = window.locator('[class*="ClawHub"], [class*="clawhub"]').first()
-      const hasContent = await content.isVisible({ timeout: 5000 }).catch(() => false)
-      expect(typeof hasContent).toBe('boolean')
-    }
+    const navButtons = window.locator('[data-testid^="nav-"]')
+    await expect(navButtons).toHaveCount(3)
 
     await electronApp.close()
   })
@@ -60,7 +57,7 @@ test.describe('Registry Flow', () => {
   test('settings modal opens and shows tabs', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()

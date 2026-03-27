@@ -55,7 +55,7 @@ export interface SkillMetadata {
 
 export interface LockEntry {
   source: string          // e.g., "crossoverJie/skills"
-  sourceType: string      // "github" | "local" | "clawhub"
+  sourceType: string      // "github" | "local"
   sourceUrl: string       // full git URL or local path
   skillPath: string       // relative path within repo
   skillFolderHash: string // git tree hash
@@ -106,41 +106,13 @@ export interface LeaderboardResult {
   totalCount: number
 }
 
-// ---- ClawHub ----
-
-export interface ClawHubSkill {
-  slug: string
-  displayName: string
-  summary: string
-  latestVersion?: string
-  downloads: number
-  stars: number
-  versionCount?: number
-  ownerHandle?: string
-  ownerDisplayName?: string
-  updatedAt?: string
-  source: 'clawhub'
-}
-
-export interface ClawHubSkillDetail {
-  skill: ClawHubSkill
-  latestVersion?: string
-  latestVersionCreatedAt?: string
-  latestChangelog?: string
-  license?: string
-  moderationVerdict?: string
-  moderationSummary?: string
-}
-
 // ---- Installation ----
 
 export interface InstallInput {
   repoUrl: string
   agentTypes: AgentType[]
-  source: 'github' | 'clawhub' | 'local'
+  source: 'github' | 'local'
   skillId?: string            // install only this specific skill from the repo
-  slug?: string
-  version?: string
 }
 
 export interface InstallResult {
@@ -188,4 +160,4 @@ export interface AppUpdateProgress {
 
 // ---- Views ----
 
-export type ViewType = 'dashboard' | 'registry' | 'clawhub' | 'settings'
+export type ViewType = 'dashboard' | 'registry' | 'settings'

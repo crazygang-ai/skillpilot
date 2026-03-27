@@ -125,7 +125,6 @@ describe('SkillManager (pure logic patterns)', () => {
         { id: 'b', lockEntry: { sourceType: 'local' } },
         { id: 'c', lockEntry: undefined },
         { id: 'd', lockEntry: { sourceType: 'github' } },
-        { id: 'e', lockEntry: { sourceType: 'clawhub' } },
       ]
 
       const updatable = skills.filter(

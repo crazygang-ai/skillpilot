@@ -17,14 +17,12 @@
 
 ![skills.sh Browser](assets/skills.sh.png)
 
-![ClawHub Browser](assets/clawhub.png)
-
 ![Skill Editor](assets/editor.png)
 
 ## Features
 
 - **Multi-Agent Support** — Manage skills for 11 AI code agents from a single unified interface
-- **Registry & Marketplace Browser** — Browse [skills.sh](https://skills.sh) leaderboard plus the [ClawHub](https://clawhub.ai) catalog with search, sorting, and filters
+- **Registry Browser** — Browse the [skills.sh](https://skills.sh) leaderboard with search and category filters
 - **Unified Dashboard** — View all skills and agents at a glance with per-agent filtering
 - **Flexible Imports** — Install from GitHub or import from a local folder, then auto-create symlinks and update the lock file
 - **Per-Skill Update Detection** — Detect remote changes via Git tree hash comparison and pull updates with one click
@@ -97,14 +95,14 @@ The built app will be in the `release/` directory.
 
 ## Architecture
 
-SkillPilot uses a central orchestrator pattern. The `SkillManager` composes 18 specialized service modules. The renderer communicates with the main process through a type-safe 4-layer IPC bridge.
+SkillPilot uses a central orchestrator pattern. The `SkillManager` composes 17 specialized service modules. The renderer communicates with the main process through a type-safe 4-layer IPC bridge.
 
 ```mermaid
 graph LR
     A["React + Zustand"] -->|ipcClient| B["Preload (contextBridge)"]
     B -->|ipcRenderer.invoke| C["Main (IPC Handlers)"]
     C --> D["SkillManager"]
-    D --> E["18 Services"]
+    D --> E["17 Services"]
 ```
 
 Key design decisions:

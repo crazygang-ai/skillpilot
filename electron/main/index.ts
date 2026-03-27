@@ -4,7 +4,7 @@ import log from 'electron-log'
 import { SkillManager } from '../services/skill-manager'
 import { setupIpcHandlers } from '../ipc/handlers'
 
-const isDev = !app.isPackaged
+const isDev = !app.isPackaged && process.env.NODE_ENV !== 'test'
 
 let mainWindow: BrowserWindow | null = null
 const skillManager = new SkillManager()

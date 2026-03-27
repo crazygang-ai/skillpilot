@@ -3,7 +3,6 @@ import path from 'path'
 import os from 'os'
 import { SkillManager } from '../services/skill-manager'
 import * as registryService from '../services/skill-registry-service'
-import * as clawHubService from '../services/clawhub-service'
 import * as contentFetcher from '../services/skill-content-fetcher'
 import { getProxySettings, setProxySettings } from '../services/proxy-settings'
 import { AgentType, InstallInput, ProxySettings, LeaderboardCategory, SkillMetadata } from '../../shared/types'
@@ -131,22 +130,6 @@ export function setupIpcHandlers(skillManager: SkillManager): void {
   ipcMain.handle('registry:search', async (_e, query: string) => {
     if (typeof query !== 'string') throw new Error('query must be a string')
     return registryService.search(query)
-  })
-
-  // ---- ClawHub ----
-  ipcMain.handle('clawhub:search', async (_e, query: string, sort: string) => {
-    if (typeof query !== 'string') throw new Error('query must be a string')
-    return clawHubService.search(query, 30, sort || 'downloads')
-  })
-
-  ipcMain.handle('clawhub:detail', async (_e, slug: string) => {
-    assertString(slug, 'slug')
-    return clawHubService.detail(slug)
-  })
-
-  ipcMain.handle('clawhub:content', async (_e, slug: string) => {
-    assertString(slug, 'slug')
-    return clawHubService.content(slug)
   })
 
   // ---- Content Fetcher ----

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { RegistrySkill, LeaderboardCategory, LeaderboardResult, ClawHubSkill, ClawHubSkillDetail } from '@/types'
+import type { RegistrySkill, LeaderboardCategory, LeaderboardResult } from '@/types'
 
 export function useRegistryLeaderboard(category: LeaderboardCategory) {
   return useQuery<LeaderboardResult>({
@@ -15,32 +15,6 @@ export function useRegistrySearch(query: string) {
     queryFn: () => window.electronAPI.registry.search(query),
     enabled: query.length > 0,
     staleTime: 60_000,
-  })
-}
-
-export function useClawHubSkills(query: string, sort = 'downloads') {
-  return useQuery<ClawHubSkill[]>({
-    queryKey: ['clawhub', 'search', query, sort],
-    queryFn: () => window.electronAPI.clawhub.search(query, sort),
-    staleTime: 60_000,
-  })
-}
-
-export function useClawHubDetail(slug: string | null) {
-  return useQuery<ClawHubSkillDetail>({
-    queryKey: ['clawhub', 'detail', slug],
-    queryFn: () => window.electronAPI.clawhub.detail(slug!),
-    enabled: !!slug,
-    staleTime: 10 * 60_000,
-  })
-}
-
-export function useClawHubContent(slug: string | null) {
-  return useQuery<string>({
-    queryKey: ['clawhub', 'content', slug],
-    queryFn: () => window.electronAPI.clawhub.content(slug!),
-    enabled: !!slug,
-    staleTime: 10 * 60_000,
   })
 }
 

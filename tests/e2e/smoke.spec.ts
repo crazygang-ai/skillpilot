@@ -2,13 +2,19 @@ import { test, expect } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 import path from 'path'
 
-const MAIN_JS = path.join(__dirname, '../../dist-electron/main/index.js')
+const MAIN_JS = path.join(__dirname, '../../dist-electron/electron/main/index.js')
+
+function createLaunchEnv() {
+  const env = { ...process.env, NODE_ENV: 'test' }
+  delete env.ELECTRON_RUN_AS_NODE
+  return env
+}
 
 test.describe('Smoke Test', () => {
   test('app launches and shows window', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
@@ -18,13 +24,8 @@ test.describe('Smoke Test', () => {
     const title = await window.title()
     expect(title).toBeTruthy()
 
-    // Check window dimensions
-    const size = await window.evaluate(() => ({
-      width: window.innerWidth,
-      height: window.innerHeight,
-    }))
-    expect(size.width).toBeGreaterThan(0)
-    expect(size.height).toBeGreaterThan(0)
+    // Root container should be attached even in headless/offscreen runs.
+    await expect(window.locator('#root')).toBeAttached()
 
     await electronApp.close()
   })
@@ -32,7 +33,7 @@ test.describe('Smoke Test', () => {
   test('sidebar is visible with navigation items', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
@@ -52,7 +53,7 @@ test.describe('Smoke Test', () => {
   test('navigation between views works', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()

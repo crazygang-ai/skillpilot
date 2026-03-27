@@ -1,4 +1,4 @@
-import { Monitor, Globe, Package, Settings, RefreshCw, ArrowUpCircle } from 'lucide-react'
+import { Monitor, Globe, Settings, RefreshCw, ArrowUpCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/stores/appStore'
 import { useAgents } from '@/hooks/useAgents'
@@ -19,7 +19,6 @@ export default function Sidebar() {
   const navItems: { view: ViewType; label: string; icon: React.ReactNode }[] = [
     { view: 'dashboard', label: t('sidebar.dashboard'), icon: <Monitor size={18} /> },
     { view: 'registry', label: t('sidebar.skillsSh'), icon: <Globe size={18} /> },
-    { view: 'clawhub', label: t('sidebar.clawHub'), icon: <Package size={18} /> },
     { view: 'settings', label: t('sidebar.settings'), icon: <Settings size={18} /> },
   ]
 

@@ -21,11 +21,6 @@ export const IPC_CHANNELS = {
     LEADERBOARD: 'registry:leaderboard',
     SEARCH: 'registry:search',
   },
-  CLAWHUB: {
-    SEARCH: 'clawhub:search',
-    DETAIL: 'clawhub:detail',
-    CONTENT: 'clawhub:content',
-  },
   CONTENT: {
     FETCH: 'content:fetch',
   },

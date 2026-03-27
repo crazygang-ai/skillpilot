@@ -16,7 +16,6 @@ const zh = {
   sidebar: {
     dashboard: '仪表盘',
     skillsSh: 'skills.sh',
-    clawHub: 'ClawHub',
     settings: '设置',
     allAgents: '全部助手',
     checkAllUpdates: '检查所有技能更新',
@@ -70,16 +69,6 @@ const zh = {
     searchPlaceholder: '搜索 skills.sh...',
     noSkillsFound: '未找到技能',
     installToAgents: '安装到助手',
-  },
-
-  // ClawHub
-  clawHub: {
-    searchPlaceholder: '搜索 ClawHub...',
-    downloads: '下载量',
-    stars: '星标',
-    relevance: '相关度',
-    noSkillsFound: '未找到 "{{query}}" 相关技能',
-    viewOnClawHub: '在 ClawHub 查看',
   },
 
   // Editor

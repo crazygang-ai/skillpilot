@@ -2,26 +2,27 @@ import { test, expect } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 import path from 'path'
 
-const MAIN_JS = path.join(__dirname, '../../dist-electron/main/index.js')
+const MAIN_JS = path.join(__dirname, '../../dist-electron/electron/main/index.js')
+
+function createLaunchEnv() {
+  const env = { ...process.env, NODE_ENV: 'test' }
+  delete env.ELECTRON_RUN_AS_NODE
+  return env
+}
 
 test.describe('Core Flow', () => {
   test('skill list displays installed skills', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Wait for initial data load
-    await window.waitForTimeout(3000)
-
-    // The skill list area should exist
-    const skillList = window.locator('[class*="SkillList"], [class*="skill-list"], [role="list"]').first()
-    await expect(skillList).toBeVisible({ timeout: 15000 }).catch(() => {
-      // Skills list may be empty on a clean system — that's OK
-    })
+    // The dashboard skill list should render even on a clean system.
+    const searchInput = window.locator('input[placeholder="Search skills..."]').first()
+    await expect(searchInput).toBeVisible({ timeout: 15000 })
 
     await electronApp.close()
   })
@@ -29,7 +30,7 @@ test.describe('Core Flow', () => {
   test('clicking a skill shows detail panel', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
@@ -41,9 +42,9 @@ test.describe('Core Flow', () => {
     if (await skillItem.isVisible({ timeout: 5000 }).catch(() => false)) {
       await skillItem.click()
 
-      // Detail panel should appear
-      const detail = window.locator('[class*="SkillDetail"], [class*="skill-detail"]').first()
-      await expect(detail).toBeVisible({ timeout: 5000 })
+      // Detail action bar should appear once a skill is selected.
+      const detailAction = window.locator('button:has-text("Copy Path")').first()
+      await expect(detailAction).toBeVisible({ timeout: 5000 })
     }
 
     await electronApp.close()
@@ -52,19 +53,16 @@ test.describe('Core Flow', () => {
   test('agent list shows detected agents', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
-      env: { ...process.env, NODE_ENV: 'test' },
+      env: createLaunchEnv(),
     })
 
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
     await window.waitForTimeout(3000)
 
-    // At least one agent should be detected (Claude Code is likely installed
-    // since we're running in a Claude Code environment)
-    const agentItems = window.locator('[class*="agent"], text=/Claude|Codex|Gemini|Copilot|Cursor/')
-    const count = await agentItems.count()
-    // Don't assert count > 0 — might run in clean CI environment
-    expect(count).toBeGreaterThanOrEqual(0)
+    // Agent section should render even if no CLIs are installed.
+    const agentSectionLabel = window.locator('text=All Agents').first()
+    await expect(agentSectionLabel).toBeVisible({ timeout: 5000 })
 
     await electronApp.close()
   })

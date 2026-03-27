@@ -16,7 +16,6 @@ const en = {
   sidebar: {
     dashboard: 'Dashboard',
     skillsSh: 'skills.sh',
-    clawHub: 'ClawHub',
     settings: 'Settings',
     allAgents: 'All Agents',
     checkAllUpdates: 'Check all skill updates',
@@ -70,16 +69,6 @@ const en = {
     searchPlaceholder: 'Search skills.sh...',
     noSkillsFound: 'No skills found',
     installToAgents: 'Install to Agents',
-  },
-
-  // ClawHub
-  clawHub: {
-    searchPlaceholder: 'Search ClawHub...',
-    downloads: 'Downloads',
-    stars: 'Stars',
-    relevance: 'Relevance',
-    noSkillsFound: 'No skills found for "{{query}}"',
-    viewOnClawHub: 'View on ClawHub',
   },
 
   // Editor

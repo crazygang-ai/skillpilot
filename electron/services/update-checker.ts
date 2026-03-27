@@ -2,7 +2,6 @@ import { app } from 'electron'
 import path from 'path'
 import { Skill } from '../../shared/types'
 import * as gitService from './git-service'
-import * as clawHubService from './clawhub-service'
 import * as networkProvider from './network-session-provider'
 import { GITHUB_API_BASE } from '../utils/constants'
 
@@ -46,7 +45,7 @@ export async function checkAppUpdate(): Promise<{
 
 /**
  * Check if a skill has updates by comparing local tree hash vs remote.
- * Supports both GitHub (git tree hash) and ClawHub (version string) sources.
+ * Supports GitHub sources via git tree hash comparison.
  */
 export async function checkSkillUpdate(skill: Skill): Promise<{
   hasUpdate: boolean
@@ -54,10 +53,6 @@ export async function checkSkillUpdate(skill: Skill): Promise<{
   remoteCommitHash?: string
 }> {
   if (!skill.lockEntry) return { hasUpdate: false }
-
-  if (skill.lockEntry.sourceType === 'clawhub') {
-    return checkClawHubUpdate(skill)
-  }
 
   if (skill.lockEntry.sourceType !== 'github') {
     return { hasUpdate: false }
@@ -74,26 +69,6 @@ export async function checkSkillUpdate(skill: Skill): Promise<{
     const hasUpdate = !!localHash && remoteTreeHash !== localHash
 
     return { hasUpdate, remoteTreeHash, remoteCommitHash }
-  } catch {
-    return { hasUpdate: false }
-  }
-}
-
-async function checkClawHubUpdate(skill: Skill): Promise<{
-  hasUpdate: boolean
-  remoteTreeHash?: string
-  remoteCommitHash?: string
-}> {
-  try {
-    const slug = skill.lockEntry!.source
-    const detail = await clawHubService.detail(slug)
-    const remoteVersion = detail.latestVersion
-    if (!remoteVersion) return { hasUpdate: false }
-
-    const localVersion = skill.lockEntry!.skillFolderHash
-    const hasUpdate = !!localVersion && remoteVersion !== localVersion
-
-    return { hasUpdate, remoteTreeHash: remoteVersion }
   } catch {
     return { hasUpdate: false }
   }
