@@ -31,7 +31,8 @@ const en = {
     filterUser: 'User',
     filterBuiltin: 'Builtin',
     noSkills: 'No skills found',
-    noMatch: 'No skills match your search',
+    noMatch: 'No matching skills',
+    noDescription: 'No description',
     skillCount: '{{count}} skill',
     skillCount_other: '{{count}} skills',
   },
@@ -118,8 +119,19 @@ const en = {
     installFailed: 'Installation failed',
   },
 
+  // Scope
+  scope: {
+    global: 'Global',
+    project: 'Project',
+  },
+
   // Editor
   editor: {
+    editSkill: 'Edit Skill',
+    contentLabel: 'Content (Markdown)',
+    contentPlaceholder: 'Write your skill documentation in Markdown...',
+    skillSaved: 'Skill saved',
+    skillNotFound: 'Skill not found',
     title: 'Skill Editor',
     metadata: 'Metadata',
     preview: 'Preview',

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Save, X, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import MetadataForm from '@/components/editor/MetadataForm'
 import MarkdownPreview from '@/components/editor/MarkdownPreview'
 import { useSkills, useSaveSkillMD } from '@/hooks/useSkills'
@@ -12,6 +13,7 @@ interface SkillEditorViewProps {
 }
 
 export default function SkillEditorView({ skillId, onClose }: SkillEditorViewProps) {
+  const { t } = useTranslation()
   const { data: skills } = useSkills()
   const saveMutation = useSaveSkillMD()
   const addNotification = useNotificationStore((s) => s.addNotification)
@@ -35,7 +37,7 @@ export default function SkillEditorView({ skillId, onClose }: SkillEditorViewPro
       { skillId, metadata, body },
       {
         onSuccess: () => {
-          addNotification('success', 'Skill saved')
+          addNotification('success', t('editor.skillSaved'))
           onClose()
         },
         onError: (err) => addNotification('error', err.message),
@@ -58,7 +60,7 @@ export default function SkillEditorView({ skillId, onClose }: SkillEditorViewPro
   if (!skill) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-text-muted">Skill not found</p>
+        <p className="text-sm text-text-muted">{t('editor.skillNotFound')}</p>
       </div>
     )
   }
@@ -67,7 +69,7 @@ export default function SkillEditorView({ skillId, onClose }: SkillEditorViewPro
     <div className="flex h-full flex-col">
       {/* Top Bar */}
       <div className="flex items-center justify-between border-b border-border pl-20 pr-6 py-3">
-        <h2 className="text-sm font-semibold text-text-primary">Edit Skill</h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t('editor.editSkill')}</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={handleSave}
@@ -79,14 +81,14 @@ export default function SkillEditorView({ skillId, onClose }: SkillEditorViewPro
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Save
+            {t('common.save')}
           </button>
           <button
             onClick={onClose}
             className="inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover transition-colors"
           >
             <X className="h-4 w-4" />
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </div>
@@ -98,13 +100,13 @@ export default function SkillEditorView({ skillId, onClose }: SkillEditorViewPro
           <MetadataForm metadata={metadata} onChange={setMetadata} />
           <div className="space-y-1.5">
             <label className="block text-xs font-medium text-text-secondary uppercase tracking-wide">
-              Content (Markdown)
+              {t('editor.contentLabel')}
             </label>
             <textarea
               className="w-full min-h-[300px] resize-y rounded-lg bg-bg-tertiary border border-border px-3 py-2 text-sm text-text-primary font-mono placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Write your skill documentation in Markdown..."
+              placeholder={t('editor.contentPlaceholder')}
             />
           </div>
         </div>

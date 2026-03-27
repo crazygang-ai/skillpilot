@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ProxySettings, SetProxySettingsInput } from '@/types'
+import api from '@/services/ipcClient'
 
 interface SettingsState {
   proxy: ProxySettings
@@ -21,7 +22,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   loadProxy: async () => {
     try {
-      const proxy = await window.electronAPI.settings.getProxy()
+      const proxy = await api.settings.getProxy()
       set({ proxy })
     } catch {
       // ignore
@@ -29,7 +30,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   saveProxy: async (input) => {
-    await window.electronAPI.settings.setProxy(input)
+    await api.settings.setProxy(input)
     set({ proxy: input.proxy })
   },
 

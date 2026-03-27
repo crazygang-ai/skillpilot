@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { AppUpdateState } from '../../shared/types'
 import { useUpdateStore } from '@/stores/updateStore'
+import api from '@/services/ipcClient'
 
 export function useAppUpdateSync() {
   const init = useUpdateStore((state) => state.init)
@@ -9,7 +10,7 @@ export function useAppUpdateSync() {
   useEffect(() => {
     void init()
 
-    const unsubscribe = window.electronAPI.updater.onStateChanged((state) => {
+    const unsubscribe = api.updater.onStateChanged((state) => {
       hydrate(state as AppUpdateState)
     })
 

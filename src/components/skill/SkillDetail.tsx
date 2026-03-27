@@ -27,6 +27,7 @@ import { useAppStore } from '@/stores/appStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { getAgentStatePresentation } from './agent-state-presentation'
 import type { Skill, Agent, AgentType, SkillAgentStatus } from '@/types'
+import api from '@/services/ipcClient'
 
 const AGENT_COLORS: Record<string, string> = {
   claude: 'text-agent-claude',
@@ -124,7 +125,7 @@ export default function SkillDetail() {
 
   const handleRevealInFinder = useCallback(() => {
     if (!skill) return
-    window.electronAPI?.fs?.revealInFinder?.(skill.canonicalPath)
+    api.fs?.revealInFinder?.(skill.canonicalPath)
   }, [skill])
 
   const handleDelete = useCallback(() => {

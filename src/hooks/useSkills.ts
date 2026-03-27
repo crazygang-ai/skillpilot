@@ -8,11 +8,12 @@ import type {
   SkillUpdateCheckResult,
   SkillMetadata,
 } from '@/types'
+import api from '@/services/ipcClient'
 
 export function useSkills() {
   return useQuery<Skill[]>({
     queryKey: ['skills'],
-    queryFn: () => window.electronAPI.skills.scanAll(),
+    queryFn: () => api.skills.scanAll(),
     staleTime: 10_000,
   })
 }
@@ -21,7 +22,7 @@ export function useAssignSkill() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ skillPath, agentType }: { skillPath: string; agentType: string }) =>
-      window.electronAPI.skills.assign(skillPath, agentType),
+      api.skills.assign(skillPath, agentType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
@@ -33,7 +34,7 @@ export function useUnassignSkill() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ skillPath, agentType }: { skillPath: string; agentType: string }) =>
-      window.electronAPI.skills.unassign(skillPath, agentType),
+      api.skills.unassign(skillPath, agentType),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
@@ -45,7 +46,7 @@ export function useRemoveLocalInstallation() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: RemoveLocalInstallationInput) =>
-      window.electronAPI.skills.removeLocalInstallation(input),
+      api.skills.removeLocalInstallation(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
@@ -57,7 +58,7 @@ export function useDeleteSkill() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ skillId }: { skillId: string }) =>
-      window.electronAPI.skills.delete(skillId),
+      api.skills.delete(skillId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
@@ -68,7 +69,7 @@ export function useDeleteSkill() {
 export function useInstallSkill() {
   const queryClient = useQueryClient()
   return useMutation<InstallResult, Error, InstallInput>({
-    mutationFn: (input) => window.electronAPI.skills.install(input),
+    mutationFn: (input) => api.skills.install(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
@@ -80,7 +81,7 @@ export function useInstallSkillFromLocal() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ localPath, agentTypes }: { localPath: string; agentTypes: string[] }) =>
-      window.electronAPI.skills.installFromLocal(localPath, agentTypes),
+      api.skills.installFromLocal(localPath, agentTypes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
       queryClient.invalidateQueries({ queryKey: ['agents'] })
@@ -92,7 +93,7 @@ export function useSaveSkillMD() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ skillId, metadata, body }: { skillId: string; metadata: SkillMetadata; body: string }) =>
-      window.electronAPI.skills.save(skillId, metadata, body),
+      api.skills.save(skillId, metadata, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
     },
@@ -103,7 +104,7 @@ export function useCheckUpdate() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (skillId: string) =>
-      window.electronAPI.skills.checkUpdate(skillId) as Promise<SkillUpdateCheckResult>,
+      api.skills.checkUpdate(skillId) as Promise<SkillUpdateCheckResult>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
     },
@@ -113,7 +114,7 @@ export function useCheckUpdate() {
 export function useCheckAllUpdates() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () => window.electronAPI.skills.checkAllUpdates(),
+    mutationFn: () => api.skills.checkAllUpdates(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
     },
@@ -124,7 +125,7 @@ export function useUpdateSkill() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (skillId: string) =>
-      window.electronAPI.skills.updateSkill(skillId) as Promise<SkillUpdateApplyResult>,
+      api.skills.updateSkill(skillId) as Promise<SkillUpdateApplyResult>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
     },

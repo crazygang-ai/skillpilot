@@ -32,6 +32,7 @@ const zh = {
     filterBuiltin: '内置',
     noSkills: '未找到技能',
     noMatch: '没有匹配的技能',
+    noDescription: '暂无描述',
     skillCount: '{{count}} 个技能',
     skillCount_other: '{{count}} 个技能',
   },
@@ -118,8 +119,19 @@ const zh = {
     installFailed: '安装失败',
   },
 
+  // Scope
+  scope: {
+    global: '全局',
+    project: '项目',
+  },
+
   // Editor
   editor: {
+    editSkill: '编辑技能',
+    contentLabel: '内容 (Markdown)',
+    contentPlaceholder: '使用 Markdown 编写技能文档...',
+    skillSaved: '技能已保存',
+    skillNotFound: '未找到技能',
     title: '技能编辑器',
     metadata: '元数据',
     preview: '预览',

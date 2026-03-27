@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
 import { Search, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useSkills } from '@/hooks/useSkills'
 import { useAppStore } from '@/stores/appStore'
 import { type OwnershipFilter, matchesOwnershipFilter } from './skill-ownership'
-import type { Skill, AgentType } from '@/types'
+import ScopeBadge from '@/components/common/ScopeBadge'
+import type { AgentType } from '@/types'
 
 const AGENT_COLORS: Record<string, string> = {
   claude: 'bg-agent-claude',
@@ -20,27 +22,8 @@ const AGENT_COLORS: Record<string, string> = {
   trae: 'bg-agent-trae',
 }
 
-const FILTER_TABS: { label: string; value: OwnershipFilter }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'User', value: 'user' },
-  { label: 'Builtin', value: 'builtin' },
-]
-
-function ScopeBadge({ scope }: { scope: Skill['scope'] }) {
-  const text =
-    scope.kind === 'sharedGlobal'
-      ? 'Global'
-      : scope.kind === 'agentLocal'
-        ? scope.agentType
-        : 'Project'
-  return (
-    <span className="inline-flex items-center rounded-md bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
-      {text}
-    </span>
-  )
-}
-
 export default function SkillList() {
+  const { t } = useTranslation()
   const { data: skills, isLoading } = useSkills()
   const { selectedSkillId, setSelectedSkillId, selectedAgent, searchQuery, setSearchQuery } =
     useAppStore()
@@ -70,7 +53,7 @@ export default function SkillList() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
-            placeholder="Search skills..."
+            placeholder={t('skillList.searchPlaceholder')}
             className="w-full rounded-lg bg-bg-tertiary border border-border pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -80,7 +63,11 @@ export default function SkillList() {
 
       {/* Filter Tabs */}
       <div className="flex gap-1 px-3 pb-2">
-        {FILTER_TABS.map(({ label, value }) => (
+        {([
+          { label: t('skillList.filterAll'), value: 'all' as OwnershipFilter },
+          { label: t('skillList.filterUser'), value: 'user' as OwnershipFilter },
+          { label: t('skillList.filterBuiltin'), value: 'builtin' as OwnershipFilter },
+        ]).map(({ label, value }) => (
           <button
             key={value}
             onClick={() => setOwnershipFilter(value)}
@@ -103,9 +90,9 @@ export default function SkillList() {
             <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
           </div>
         ) : !skills?.length ? (
-          <p className="py-12 text-center text-sm text-text-muted">No skills found</p>
+          <p className="py-12 text-center text-sm text-text-muted">{t('skillList.noSkills')}</p>
         ) : filteredSkills.length === 0 ? (
-          <p className="py-12 text-center text-sm text-text-muted">No matching skills</p>
+          <p className="py-12 text-center text-sm text-text-muted">{t('skillList.noMatch')}</p>
         ) : (
           filteredSkills.map((skill) => (
             <button
@@ -123,10 +110,10 @@ export default function SkillList() {
                 {skill.hasUpdate && (
                   <span className="h-2 w-2 rounded-full bg-warning flex-shrink-0" />
                 )}
-                <ScopeBadge scope={skill.scope} />
+                <ScopeBadge scope={skill.scope} variant="subtle" />
               </div>
               <p className="mt-0.5 text-xs text-text-muted truncate">
-                {skill.metadata.description || 'No description'}
+                {skill.metadata.description || t('skillList.noDescription')}
               </p>
               <div className="mt-1 flex gap-1">
                 {skill.installations.map((inst) => (
@@ -145,7 +132,7 @@ export default function SkillList() {
       {/* Footer */}
       <div className="border-t border-border px-3 py-2">
         <p className="text-xs text-text-muted">
-          {filteredSkills.length} skill{filteredSkills.length !== 1 ? 's' : ''}
+          {t('skillList.skillCount', { count: filteredSkills.length })}
         </p>
       </div>
     </div>

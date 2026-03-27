@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useInstallSkillFromLocal } from '@/hooks/useSkills'
 import { useNotificationStore } from '@/stores/notificationStore'
+import api from '@/services/ipcClient'
 import AgentSelector from './AgentSelector'
 
 interface UploadSkillModalProps {
@@ -28,7 +29,7 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
 
   async function handleBrowse() {
     try {
-      const result = await window.electronAPI.dialog.openDirectory()
+      const result = await api.dialog.openDirectory()
       if (result) {
         setSelectedDirectory(result)
       }

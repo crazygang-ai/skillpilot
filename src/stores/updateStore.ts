@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AppUpdateState } from '../../shared/types'
+import api from '@/services/ipcClient'
 
 interface UpdateStoreState extends AppUpdateState {
   initialized: boolean
@@ -32,11 +33,11 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
   init: async () => {
     if (get().initialized) return
     try {
-      const state = await window.electronAPI.updater.getState()
+      const state = await api.updater.getState()
       get().hydrate(state)
     } catch {
       try {
-        const currentVersion = await window.electronAPI.updater.getCurrentVersion()
+        const currentVersion = await api.updater.getCurrentVersion()
         set({
           currentVersion,
           initialized: true,
@@ -49,7 +50,7 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
 
   checkForUpdates: async () => {
     try {
-      await window.electronAPI.updater.checkForUpdates()
+      await api.updater.checkForUpdates()
     } catch {
       // Main process stateChanged events drive the user-visible error state.
     }
@@ -57,7 +58,7 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
 
   downloadUpdate: async () => {
     try {
-      await window.electronAPI.updater.downloadUpdate()
+      await api.updater.downloadUpdate()
     } catch {
       // Main process stateChanged events drive the user-visible error state.
     }
@@ -65,7 +66,7 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
 
   quitAndInstall: async () => {
     try {
-      await window.electronAPI.updater.quitAndInstall()
+      await api.updater.quitAndInstall()
     } catch {
       // The app may terminate before a response returns, so callers should not rely on resolution.
     }
