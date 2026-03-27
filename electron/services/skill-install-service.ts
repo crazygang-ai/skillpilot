@@ -53,11 +53,17 @@ export async function installFromRemote(input: InstallInput): Promise<InstallRes
     for (const skillDir of skillDirs) {
       const skillPath = path.relative(repoDir, skillDir) + '/SKILL.md'
       const skillId = createGitHubSkillId(input.repoUrl, skillPath)
-      const destDir = path.join(SHARED_SKILLS_DIR, skillId)
+      const skillDirName = path.basename(skillDir)
 
       if (!await pathExists(SHARED_SKILLS_DIR)) {
         await fsPromises.mkdir(SHARED_SKILLS_DIR, { recursive: true })
       }
+
+      const existingByName = path.join(SHARED_SKILLS_DIR, skillDirName)
+      const reuseExisting = skillDirName !== skillId
+        && await pathExists(path.join(existingByName, 'SKILL.md'))
+      const destDir = reuseExisting ? existingByName : path.join(SHARED_SKILLS_DIR, skillId)
+
       if (await pathExists(destDir)) {
         await fsPromises.rm(destDir, { recursive: true, force: true })
       }
@@ -71,6 +77,13 @@ export async function installFromRemote(input: InstallInput): Promise<InstallRes
       const treeHash = await safeGetTreeHash(skillDir, repoDir)
       const commitHash = await safeGetCommitHash(repoDir)
       const now = new Date().toISOString()
+
+      if (reuseExisting) {
+        const oldEntry = await lockFileManager.getEntry(skillDirName)
+        if (oldEntry) {
+          await lockFileManager.removeEntry(skillDirName)
+        }
+      }
 
       const lockEntry: LockEntry = {
         stableId: skillId,

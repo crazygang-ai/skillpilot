@@ -7,7 +7,7 @@ export default function Dashboard() {
       <div className="w-96 border-r border-border">
         <SkillList />
       </div>
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         <SkillDetail />
       </div>
     </div>

@@ -301,8 +301,10 @@ describe('shared contracts', () => {
     const expectedKeys = [
       'allAgents',
       'checkAllUpdates',
+      'checkAllUpdatesDone',
       'dashboard',
       'refresh',
+      'refreshed',
       'settings',
       'skillsSh',
     ]
