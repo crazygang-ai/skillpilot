@@ -1,5 +1,5 @@
+import fsPromises from 'fs/promises'
 import yaml from 'js-yaml'
-import fs from 'fs'
 import { SkillMetadata } from '../../shared/types'
 
 export interface ParseResult {
@@ -42,8 +42,8 @@ export function parse(content: string): ParseResult {
   }
 }
 
-export function parseFile(filePath: string): ParseResult {
-  const content = fs.readFileSync(filePath, 'utf-8')
+export async function parseFile(filePath: string): Promise<ParseResult> {
+  const content = await fsPromises.readFile(filePath, 'utf-8')
   return parse(content)
 }
 

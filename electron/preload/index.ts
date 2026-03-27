@@ -35,6 +35,11 @@ export const electronAPI = {
       ipcRenderer.on(IPC_CHANNELS.SKILL.ON_STATE_CHANGED, handler)
       return () => ipcRenderer.removeListener(IPC_CHANNELS.SKILL.ON_STATE_CHANGED, handler)
     },
+    onRefreshFailed: (callback: (message: string) => void) => {
+      const handler = (_event: unknown, message: string) => callback(message)
+      ipcRenderer.on(IPC_CHANNELS.SKILL.ON_REFRESH_FAILED, handler)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.SKILL.ON_REFRESH_FAILED, handler)
+    },
   },
 
   // Registry

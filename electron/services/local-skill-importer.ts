@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 
 export interface ResolvedLocalSkillImport {
@@ -8,21 +8,25 @@ export interface ResolvedLocalSkillImport {
   skillMdPath: string
 }
 
-export function resolveLocalSkillImport(localPath: string): ResolvedLocalSkillImport {
+async function pathExists(p: string): Promise<boolean> {
+  try { await fsPromises.access(p); return true } catch { return false }
+}
+
+export async function resolveLocalSkillImport(localPath: string): Promise<ResolvedLocalSkillImport> {
   const resolvedInputPath = path.resolve(localPath)
 
-  if (!fs.existsSync(resolvedInputPath)) {
+  if (!(await pathExists(resolvedInputPath))) {
     throw new Error(`Local skill path does not exist: ${resolvedInputPath}`)
   }
 
-  const realPath = fs.realpathSync(resolvedInputPath)
-  const stat = fs.statSync(realPath)
+  const realPath = await fsPromises.realpath(resolvedInputPath)
+  const stat = await fsPromises.stat(realPath)
   if (!stat.isDirectory()) {
     throw new Error(`Local skill path must be a directory: ${realPath}`)
   }
 
   const skillMdPath = path.join(realPath, 'SKILL.md')
-  if (!fs.existsSync(skillMdPath)) {
+  if (!(await pathExists(skillMdPath))) {
     throw new Error(`Local skill directory must contain SKILL.md: ${realPath}`)
   }
 
@@ -39,36 +43,36 @@ export function resolveLocalSkillImport(localPath: string): ResolvedLocalSkillIm
   }
 }
 
-export function copyDirectoryWithoutSymlinks(src: string, dest: string): void {
+export async function copyDirectoryWithoutSymlinks(src: string, dest: string): Promise<void> {
   try {
-    copyDirectoryWithoutSymlinksImpl(src, dest)
+    await copyDirectoryWithoutSymlinksImpl(src, dest)
   } catch (error) {
-    if (fs.existsSync(dest)) {
-      fs.rmSync(dest, { recursive: true, force: true })
+    if (await pathExists(dest)) {
+      await fsPromises.rm(dest, { recursive: true, force: true })
     }
     throw error
   }
 }
 
-function copyDirectoryWithoutSymlinksImpl(src: string, dest: string): void {
-  fs.mkdirSync(dest, { recursive: true })
+async function copyDirectoryWithoutSymlinksImpl(src: string, dest: string): Promise<void> {
+  await fsPromises.mkdir(dest, { recursive: true })
 
-  for (const entry of fs.readdirSync(src)) {
+  for (const entry of await fsPromises.readdir(src)) {
     const srcPath = path.join(src, entry)
     const destPath = path.join(dest, entry)
-    const stat = fs.lstatSync(srcPath)
+    const stat = await fsPromises.lstat(srcPath)
 
     if (stat.isSymbolicLink()) {
       throw new Error(`Local skill import does not allow symlinks: ${srcPath}`)
     }
 
     if (stat.isDirectory()) {
-      copyDirectoryWithoutSymlinksImpl(srcPath, destPath)
+      await copyDirectoryWithoutSymlinksImpl(srcPath, destPath)
       continue
     }
 
     if (stat.isFile()) {
-      fs.copyFileSync(srcPath, destPath)
+      await fsPromises.copyFile(srcPath, destPath)
     }
   }
 }

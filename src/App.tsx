@@ -1,3 +1,4 @@
+import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAppStore } from '@/stores/appStore'
 import { useAppUpdateSync } from '@/hooks/useAppUpdateSync'
@@ -54,17 +55,56 @@ function MainContent() {
   )
 }
 
+class AppErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen w-screen items-center justify-center bg-bg text-text-primary">
+          <div className="text-center max-w-md p-8">
+            <h1 className="text-xl font-semibold mb-3">Something went wrong</h1>
+            <p className="text-sm text-text-muted mb-6 break-words">{this.state.error?.message}</p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false, error: null })
+                window.location.reload()
+              }}
+              className="px-5 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="flex h-screen w-screen overflow-hidden bg-bg text-text-primary">
-        <Sidebar />
-        <MainContent />
-      </div>
-      <Notifications />
-      <AppUpdateInitializer />
-      <SkillWatcherInitializer />
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <div className="flex h-screen w-screen overflow-hidden bg-bg text-text-primary">
+          <Sidebar />
+          <MainContent />
+        </div>
+        <Notifications />
+        <AppUpdateInitializer />
+        <SkillWatcherInitializer />
+      </QueryClientProvider>
+    </AppErrorBoundary>
   )
 }
 

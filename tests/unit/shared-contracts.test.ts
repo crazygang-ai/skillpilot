@@ -191,6 +191,7 @@ describe('shared contracts', () => {
       'delete',
       'install',
       'installFromLocal',
+      'onRefreshFailed',
       'onStateChanged',
       'removeLocalInstallation',
       'save',

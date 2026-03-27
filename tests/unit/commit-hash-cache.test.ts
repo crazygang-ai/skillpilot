@@ -30,38 +30,38 @@ describe('CommitHashCache', () => {
   it('returns undefined for missing skill hash', async () => {
     const mod = await import('../../electron/services/commit-hash-cache')
     mod.invalidateCache()
-    expect(mod.getCommitHash('nonexistent')).toBeUndefined()
+    expect(await mod.getCommitHash('nonexistent')).toBeUndefined()
   })
 
   it('sets and gets commit hash', async () => {
     const mod = await import('../../electron/services/commit-hash-cache')
     mod.invalidateCache()
-    mod.setCommitHash('test-skill', 'abc123')
-    expect(mod.getCommitHash('test-skill')).toBe('abc123')
+    await mod.setCommitHash('test-skill', 'abc123')
+    expect(await mod.getCommitHash('test-skill')).toBe('abc123')
   })
 
   it('removes commit hash', async () => {
     const mod = await import('../../electron/services/commit-hash-cache')
     mod.invalidateCache()
-    mod.setCommitHash('test-skill', 'abc123')
-    mod.removeCommitHash('test-skill')
-    expect(mod.getCommitHash('test-skill')).toBeUndefined()
+    await mod.setCommitHash('test-skill', 'abc123')
+    await mod.removeCommitHash('test-skill')
+    expect(await mod.getCommitHash('test-skill')).toBeUndefined()
   })
 
   it('sets and gets repo history', async () => {
     const mod = await import('../../electron/services/commit-hash-cache')
     mod.invalidateCache()
-    mod.setRepoHistory('https://github.com/user/repo.git', 'def456')
-    expect(mod.getRepoHistory('https://github.com/user/repo.git')).toBe('def456')
+    await mod.setRepoHistory('https://github.com/user/repo.git', 'def456')
+    expect(await mod.getRepoHistory('https://github.com/user/repo.git')).toBe('def456')
   })
 
   it('invalidateCache forces re-read from disk', async () => {
     const mod = await import('../../electron/services/commit-hash-cache')
     mod.invalidateCache()
-    mod.setCommitHash('skill-a', 'hash1')
+    await mod.setCommitHash('skill-a', 'hash1')
 
     // Invalidate and ensure it still reads from file
     mod.invalidateCache()
-    expect(mod.getCommitHash('skill-a')).toBe('hash1')
+    expect(await mod.getCommitHash('skill-a')).toBe('hash1')
   })
 })

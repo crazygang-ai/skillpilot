@@ -3,6 +3,7 @@ import os from 'os'
 import path from 'path'
 import { EventEmitter } from 'events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import log from 'electron-log'
 import { AgentType, type LockEntry } from '../../shared/types'
 
 const tempDirs: string[] = []
@@ -337,15 +338,15 @@ describe('skill identity migration', () => {
     } = await loadLockAndCacheModulesForMigrationTest(baseDir)
     const stableId = identity.createGitHubSkillId(legacyEntry.sourceUrl, legacyEntry.skillPath)
 
-    const migrated = lockFileManager.read()
+    const migrated = await lockFileManager.read()
 
     expect(migrated.skills[legacyKey]).toBeUndefined()
     expect(migrated.skills[stableId]).toEqual({
       ...legacyEntry,
       stableId,
     })
-    expect(commitHashCache.getCommitHash(stableId)).toBe('commit-123')
-    expect(commitHashCache.getCommitHash(legacyKey)).toBeUndefined()
+    expect(await commitHashCache.getCommitHash(stableId)).toBe('commit-123')
+    expect(await commitHashCache.getCommitHash(legacyKey)).toBeUndefined()
 
     const writtenLockFile = JSON.parse(fs.readFileSync(lockFilePath, 'utf-8'))
     const writtenCacheFile = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'))
@@ -397,7 +398,7 @@ describe('skill identity migration', () => {
     } = await loadLockAndCacheModulesForMigrationTest(baseDir)
     const stableId = identity.createLocalSkillId(fs.realpathSync(aliasSkillDir))
 
-    const migrated = lockFileManager.read()
+    const migrated = await lockFileManager.read()
 
     expect(migrated.skills[stableId]).toMatchObject({
       stableId,
@@ -405,14 +406,14 @@ describe('skill identity migration', () => {
       sourceUrl: aliasSkillDir,
     })
     expect(migrated.skills[legacyKey]).toBeUndefined()
-    expect(commitHashCache.getCommitHash(stableId)).toBe('commit-local')
-    expect(commitHashCache.getCommitHash(legacyKey)).toBeUndefined()
+    expect(await commitHashCache.getCommitHash(stableId)).toBe('commit-local')
+    expect(await commitHashCache.getCommitHash(legacyKey)).toBeUndefined()
   })
 
   it('keeps the more complete record when legacy and stable lock keys collide', async () => {
     const baseDir = createTempDir('skillpilot-lock-conflict-')
     const legacyKey = 'shared-skill'
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     vi.doUnmock('../../electron/services/skill-identity')
     const identity = await import('../../electron/services/skill-identity')
     const stableId = identity.createGitHubSkillId(
@@ -455,7 +456,7 @@ describe('skill identity migration', () => {
     }, null, 2))
 
     const { lockFileManager, commitHashCache } = await loadLockAndCacheModulesForMigrationTest(baseDir)
-    const migrated = lockFileManager.read()
+    const migrated = await lockFileManager.read()
 
     expect(migrated.skills[stableId]).toMatchObject({
       stableId,
@@ -463,8 +464,8 @@ describe('skill identity migration', () => {
       updatedAt: '2026-01-02T00:00:00.000Z',
     })
     expect(migrated.skills[legacyKey]).toBeUndefined()
-    expect(commitHashCache.getCommitHash(stableId)).toBe('stable-commit')
-    expect(commitHashCache.getCommitHash(legacyKey)).toBeUndefined()
+    expect(await commitHashCache.getCommitHash(stableId)).toBe('stable-commit')
+    expect(await commitHashCache.getCommitHash(legacyKey)).toBeUndefined()
     expect(warnSpy).toHaveBeenCalled()
 
     warnSpy.mockRestore()
@@ -473,7 +474,7 @@ describe('skill identity migration', () => {
   it('logs and preserves legacy records when a local migration cannot resolve a stable id', async () => {
     const baseDir = createTempDir('skillpilot-lock-preserve-bad-local-')
     const legacyKey = 'broken-local-skill'
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     const { lockFilePath, cacheFilePath } = createStoragePaths(baseDir)
 
     fs.mkdirSync(path.dirname(lockFilePath), { recursive: true })
@@ -500,13 +501,13 @@ describe('skill identity migration', () => {
 
     const { lockFileManager, commitHashCache } = await loadLockAndCacheModulesForMigrationTest(baseDir)
 
-    const migrated = lockFileManager.read()
+    const migrated = await lockFileManager.read()
 
     expect(migrated.skills[legacyKey]).toMatchObject({
       sourceType: 'local',
       source: 'broken-local-skill',
     })
-    expect(commitHashCache.getCommitHash(legacyKey)).toBe('legacy-broken-commit')
+    expect(await commitHashCache.getCommitHash(legacyKey)).toBe('legacy-broken-commit')
     expect(warnSpy).toHaveBeenCalled()
 
     warnSpy.mockRestore()

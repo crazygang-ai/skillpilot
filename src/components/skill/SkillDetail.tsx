@@ -13,6 +13,7 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
+import ScopeBadge from '@/components/common/ScopeBadge'
 import {
   useSkills,
   useAssignSkill,
@@ -39,21 +40,6 @@ function getAgentStatusForSkill(
   if (installation.isInherited) return { status: 'builtin', isInherited: true }
   if (installation.isSymlink) return { status: 'linked', isInherited: false }
   return { status: 'installed', isInherited: false }
-}
-
-function ScopeBadge({ scope }: { scope: Skill['scope'] }) {
-  const { t } = useTranslation()
-  const text =
-    scope.kind === 'sharedGlobal'
-      ? t('skillDetail.scopeGlobal')
-      : scope.kind === 'agentLocal'
-        ? scope.agentType
-        : t('skillDetail.scopeProject')
-  return (
-    <span className="inline-flex items-center rounded-md bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary">
-      {text}
-    </span>
-  )
 }
 
 interface ActionButtonProps {
@@ -98,6 +84,7 @@ export default function SkillDetail() {
   const updateSkill = useUpdateSkill()
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<AgentType | null>(null)
 
   const skill = useMemo(
     () => skills?.find((s) => s.id === selectedSkillId) ?? null,
@@ -195,26 +182,24 @@ export default function SkillDetail() {
 
   const handleRemoveLocal = useCallback(
     (agentType: AgentType) => {
-      if (!skill) return
-      if (
-        !confirm(
-          t('skillDetail.removeLocalConfirm', { agentType }),
-        )
-      ) {
-        return
-      }
-
-      removeLocalInstallation.mutate(
-        { skillId: skill.id, agentType },
-        {
-          onSuccess: () =>
-            addNotification('success', t('skillDetail.removeLocalSuccess', { agentType })),
-          onError: (err) => addNotification('error', err.message),
-        },
-      )
+      setRemoveTarget(agentType)
     },
-    [skill, removeLocalInstallation, addNotification, t],
+    [],
   )
+
+  const handleConfirmRemoveLocal = useCallback(() => {
+    if (!skill || !removeTarget) return
+    removeLocalInstallation.mutate(
+      { skillId: skill.id, agentType: removeTarget },
+      {
+        onSuccess: () => {
+          addNotification('success', t('skillDetail.removeLocalSuccess', { agentType: removeTarget }))
+          setRemoveTarget(null)
+        },
+        onError: (err) => addNotification('error', err.message),
+      },
+    )
+  }, [skill, removeTarget, removeLocalInstallation, addNotification, t])
 
   if (!skill) {
     return (
@@ -388,6 +373,33 @@ export default function SkillDetail() {
                 className="rounded-lg bg-error px-4 py-2 text-sm font-medium text-white hover:bg-error/80 disabled:opacity-50 transition-colors"
               >
                 {deleteSkill.isPending ? t('skillDetail.deleting') : t('skillDetail.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Local Confirmation Dialog */}
+      {removeTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-96 rounded-xl bg-bg-secondary border border-border p-6 shadow-xl">
+            <h3 className="text-base font-semibold text-text-primary">{t('skillDetail.removeLocalTitle')}</h3>
+            <p className="mt-2 text-sm text-text-secondary">
+              {t('skillDetail.removeLocalConfirm', { agentType: removeTarget })}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setRemoveTarget(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleConfirmRemoveLocal}
+                disabled={removeLocalInstallation.isPending}
+                className="rounded-lg bg-error px-4 py-2 text-sm font-medium text-white hover:bg-error/80 disabled:opacity-50 transition-colors"
+              >
+                {removeLocalInstallation.isPending ? t('skillDetail.removing') : t('skillDetail.removeLocal')}
               </button>
             </div>
           </div>

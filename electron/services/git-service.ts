@@ -1,9 +1,13 @@
 import { execFile } from 'child_process'
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import os from 'os'
 
 const TEMP_BASE = path.join(os.tmpdir(), 'skillpilot-repos')
+
+async function pathExists(p: string): Promise<boolean> {
+  try { await fsPromises.access(p); return true } catch { return false }
+}
 
 function exec(command: string, args: string[], cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -49,18 +53,16 @@ export async function shallowClone(repoURL: string): Promise<string> {
   const repoName = extractOwnerRepo(normalized).replace(/\//g, '_')
   const destDir = path.join(TEMP_BASE, repoName)
 
-  if (!fs.existsSync(TEMP_BASE)) {
-    fs.mkdirSync(TEMP_BASE, { recursive: true })
+  if (!(await pathExists(TEMP_BASE))) {
+    await fsPromises.mkdir(TEMP_BASE, { recursive: true })
   }
 
-  if (fs.existsSync(destDir)) {
-    // Pull latest
+  if (await pathExists(destDir)) {
     try {
       await exec('git', ['pull', '--ff-only'], destDir)
       return destDir
     } catch {
-      // If pull fails, re-clone
-      fs.rmSync(destDir, { recursive: true, force: true })
+      await fsPromises.rm(destDir, { recursive: true, force: true })
     }
   }
 
@@ -78,48 +80,34 @@ export async function getCommitHash(repoDir: string): Promise<string> {
   return exec('git', ['rev-parse', 'HEAD'], repoDir)
 }
 
-export async function findCommitForTreeHash(
-  _treeHash: string,
-  _folderPath: string,
-  repoDir: string,
-): Promise<string | undefined> {
-  try {
-    const hash = await exec('git', ['log', '--format=%H', '-1'], repoDir)
-    return hash || undefined
-  } catch {
-    return undefined
-  }
-}
-
 /**
  * Scan a cloned repo for SKILL.md files (max 4 levels deep).
  */
-export function scanSkillsInRepo(repoDir: string): string[] {
+export async function scanSkillsInRepo(repoDir: string): Promise<string[]> {
   const results: string[] = []
-  scanRecursive(repoDir, repoDir, 0, 5, results)
+  await scanRecursive(repoDir, repoDir, 0, 5, results)
   return results
 }
 
-function scanRecursive(
+async function scanRecursive(
   base: string,
   dir: string,
   depth: number,
   maxDepth: number,
   results: string[],
-): void {
+): Promise<void> {
   if (depth > maxDepth) return
 
   let entries: string[]
   try {
-    entries = fs.readdirSync(dir)
+    entries = await fsPromises.readdir(dir)
   } catch {
     return
   }
 
-  // Check if current dir has SKILL.md
   if (entries.includes('SKILL.md')) {
     results.push(dir)
-    return // Don't recurse into skill directories
+    return
   }
 
   for (const entry of entries) {
@@ -128,8 +116,9 @@ function scanRecursive(
 
     const fullPath = path.join(dir, entry)
     try {
-      if (fs.statSync(fullPath).isDirectory()) {
-        scanRecursive(base, fullPath, depth + 1, maxDepth, results)
+      const stat = await fsPromises.stat(fullPath)
+      if (stat.isDirectory()) {
+        await scanRecursive(base, fullPath, depth + 1, maxDepth, results)
       }
     } catch {
       continue
@@ -145,4 +134,23 @@ export function githubWebURL(sourceUrl: string): string {
   return sourceUrl
     .replace(/\.git$/, '')
     .replace('git@github.com:', 'https://github.com/')
+}
+
+export async function cleanupTempRepos(maxAgeMs = 24 * 60 * 60 * 1000): Promise<void> {
+  if (!(await pathExists(TEMP_BASE))) return
+  try {
+    for (const entry of await fsPromises.readdir(TEMP_BASE)) {
+      const entryPath = path.join(TEMP_BASE, entry)
+      try {
+        const stat = await fsPromises.stat(entryPath)
+        if (Date.now() - stat.mtimeMs > maxAgeMs) {
+          await fsPromises.rm(entryPath, { recursive: true, force: true })
+        }
+      } catch {
+        // skip entries that can't be stat'd
+      }
+    }
+  } catch {
+    // skip if temp dir is inaccessible
+  }
 }

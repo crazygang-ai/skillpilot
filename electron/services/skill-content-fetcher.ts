@@ -24,17 +24,7 @@ export async function fetchContent(source: string, skillId: string): Promise<str
   }
 
   // Strategy 1: GitHub raw URLs in parallel
-  const branches = ['main', 'master']
-  const layouts = [
-    `${skillId}/SKILL.md`,
-    `skills/${skillId}/SKILL.md`,
-    `.claude/skills/${skillId}/SKILL.md`,
-    'SKILL.md',
-  ]
-
-  const candidates = branches.flatMap(branch =>
-    layouts.map(layout => `${GITHUB_RAW_BASE}/${source}/${branch}/${layout}`)
-  )
+  const candidates = buildCandidateURLs(source, skillId)
 
   try {
     const content = await Promise.any(
@@ -146,6 +136,19 @@ async function discoverViaTreeAPI(source: string, skillId: string): Promise<stri
   }
 
   return null
+}
+
+export function buildCandidateURLs(source: string, skillId: string): string[] {
+  const branches = ['main', 'master']
+  const layouts = [
+    `${skillId}/SKILL.md`,
+    `skills/${skillId}/SKILL.md`,
+    `.claude/skills/${skillId}/SKILL.md`,
+    'SKILL.md',
+  ]
+  return branches.flatMap(branch =>
+    layouts.map(layout => `${GITHUB_RAW_BASE}/${source}/${branch}/${layout}`)
+  )
 }
 
 export function invalidateCache(source?: string, skillId?: string): void {

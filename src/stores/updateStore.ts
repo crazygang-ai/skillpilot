@@ -51,24 +51,24 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
   checkForUpdates: async () => {
     try {
       await api.updater.checkForUpdates()
-    } catch {
-      // Main process stateChanged events drive the user-visible error state.
+    } catch (err) {
+      console.warn('checkForUpdates IPC call failed (UI state driven by events):', err)
     }
   },
 
   downloadUpdate: async () => {
     try {
       await api.updater.downloadUpdate()
-    } catch {
-      // Main process stateChanged events drive the user-visible error state.
+    } catch (err) {
+      console.warn('downloadUpdate IPC call failed (UI state driven by events):', err)
     }
   },
 
   quitAndInstall: async () => {
     try {
       await api.updater.quitAndInstall()
-    } catch {
-      // The app may terminate before a response returns, so callers should not rely on resolution.
+    } catch (err) {
+      console.warn('quitAndInstall IPC call failed (app may have terminated):', err)
     }
   },
 }))

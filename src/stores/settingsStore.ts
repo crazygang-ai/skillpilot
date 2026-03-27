@@ -24,8 +24,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     try {
       const proxy = await api.settings.getProxy()
       set({ proxy })
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('Failed to load proxy settings:', err)
     }
   },
 

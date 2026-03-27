@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events'
 import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
+import log from 'electron-log'
 import {
   Skill, Agent, AgentType, SkillMetadata,
   InstallInput, InstallResult, SkillUpdateApplyResult, SkillUpdateCheckResult,
@@ -16,6 +18,16 @@ import * as skillMDParser from './skill-md-parser'
 import * as installService from './skill-install-service'
 import { SkillUpdateService } from './skill-update-service'
 import { FileSystemWatcher } from './file-system-watcher'
+import * as gitService from './git-service'
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fsPromises.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export class SkillManager extends EventEmitter {
   skills: Skill[] = []
@@ -31,7 +43,7 @@ export class SkillManager extends EventEmitter {
     super()
     this.watcher.on('change', () => {
       this.emit('watcherChanged')
-      this.refresh().catch(console.error)
+      this.refresh().catch((err) => log.error('Watcher-triggered refresh failed:', err))
     })
   }
 
@@ -49,14 +61,14 @@ export class SkillManager extends EventEmitter {
 
     try {
       lockFileManager.invalidateCache()
-      lockFileManager.createIfNotExists()
+      await lockFileManager.createIfNotExists()
 
       const [agents, skills] = await Promise.all([
         agentDetector.detectAll(),
         skillScanner.scanAll(),
       ])
 
-      this.skills = this.updateService.restoreTransientFields(skills)
+      this.skills = await this.updateService.restoreTransientFields(skills)
       this.agents = agents.map(agent => ({
         ...agent,
         skillCount: skills.filter(s =>
@@ -72,7 +84,8 @@ export class SkillManager extends EventEmitter {
       ]
       this.watcher.startWatching(watchPaths)
     } catch (err) {
-      console.error('Refresh failed:', err)
+      log.error('Refresh failed:', err)
+      this.emit('refreshFailed', err instanceof Error ? err.message : String(err))
     } finally {
       this.isLoading = false
       this.refreshInProgress = false
@@ -80,7 +93,7 @@ export class SkillManager extends EventEmitter {
 
       if (this.refreshQueued) {
         this.refreshQueued = false
-        this.refresh().catch(console.error)
+        this.refresh().catch((err) => log.error('Queued refresh failed:', err))
       }
     }
   }
@@ -88,14 +101,14 @@ export class SkillManager extends EventEmitter {
   // ---- Skill Assignment ----
 
   async assignSkillToAgent(skillPath: string, agentType: AgentType): Promise<void> {
-    const canonicalPath = symlinkManager.resolveCanonical(skillPath)
-    symlinkManager.createSymlink(canonicalPath, agentType)
+    const canonicalPath = await symlinkManager.resolveCanonical(skillPath)
+    await symlinkManager.createSymlink(canonicalPath, agentType)
     await this.refresh()
   }
 
   async removeSkillFromAgent(skillPath: string, agentType: AgentType): Promise<void> {
     const skillName = path.basename(skillPath)
-    symlinkManager.removeSymlink(skillName, agentType)
+    await symlinkManager.removeSymlink(skillName, agentType)
     await this.refresh()
   }
 
@@ -109,9 +122,9 @@ export class SkillManager extends EventEmitter {
     if (!installation) return
 
     if (installation.isSymlink) {
-      symlinkManager.removeSymlink(path.basename(installation.path), agentType)
-    } else if (fs.existsSync(installation.path)) {
-      fs.rmSync(installation.path, { recursive: true, force: true })
+      await symlinkManager.removeSymlink(path.basename(installation.path), agentType)
+    } else if (await pathExists(installation.path)) {
+      await fsPromises.rm(installation.path, { recursive: true, force: true })
     }
 
     await this.refresh()
@@ -123,21 +136,21 @@ export class SkillManager extends EventEmitter {
 
     for (const inst of skill.installations) {
       if (!inst.isInherited && inst.isSymlink) {
-        symlinkManager.removeSymlink(path.basename(inst.path), inst.agentType)
+        await symlinkManager.removeSymlink(path.basename(inst.path), inst.agentType)
       }
     }
 
-    if (fs.existsSync(skill.canonicalPath)) {
-      fs.rmSync(skill.canonicalPath, { recursive: true, force: true })
+    if (await pathExists(skill.canonicalPath)) {
+      await fsPromises.rm(skill.canonicalPath, { recursive: true, force: true })
     }
 
-    lockFileManager.removeEntry(skillId)
+    await lockFileManager.removeEntry(skillId)
     if (skill.storageName !== skillId) {
-      lockFileManager.removeEntry(skill.storageName)
+      await lockFileManager.removeEntry(skill.storageName)
     }
-    commitHashCache.removeCommitHash(skillId)
+    await commitHashCache.removeCommitHash(skillId)
     if (skill.storageName !== skillId) {
-      commitHashCache.removeCommitHash(skill.storageName)
+      await commitHashCache.removeCommitHash(skill.storageName)
     }
 
     this.updateService.clearSkillCache(skillId)
@@ -169,7 +182,7 @@ export class SkillManager extends EventEmitter {
     const filePath = path.join(skill.canonicalPath, 'SKILL.md')
 
     const tmpPath = filePath + '.tmp'
-    fs.writeFileSync(tmpPath, content)
+    await fsPromises.writeFile(tmpPath, content)
     fs.renameSync(tmpPath, filePath)
 
     await this.refresh()
@@ -207,13 +220,14 @@ export class SkillManager extends EventEmitter {
       return result
     } catch (err) {
       this.emit('stateChanged')
-      console.error(`Failed to update skill ${skillId}:`, err)
+      log.error(`Failed to update skill ${skillId}:`, err)
       throw err
     }
   }
 
   destroy(): void {
     this.watcher.stopWatching()
+    gitService.cleanupTempRepos().catch(err => log.warn('Cleanup failed:', err))
     this.removeAllListeners()
   }
 }

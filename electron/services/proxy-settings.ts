@@ -1,6 +1,8 @@
 import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import log from 'electron-log'
 import { session, type ProxyConfig } from 'electron'
 import { ProxySettings, SetProxySettingsInput } from '../../shared/types'
 import * as keychainService from './keychain-service'
@@ -12,29 +14,33 @@ interface SettingsFile {
   proxy?: ProxySettings
 }
 
-function readSettings(): SettingsFile {
+async function pathExists(p: string): Promise<boolean> {
+  try { await fsPromises.access(p); return true } catch { return false }
+}
+
+async function readSettings(): Promise<SettingsFile> {
   try {
-    if (fs.existsSync(SETTINGS_PATH)) {
-      return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'))
+    if (await pathExists(SETTINGS_PATH)) {
+      return JSON.parse(await fsPromises.readFile(SETTINGS_PATH, 'utf-8'))
     }
-  } catch {
-    // ignore parse errors
+  } catch (err) {
+    log.warn('Failed to parse proxy settings file:', err)
   }
   return {}
 }
 
-function writeSettings(settings: SettingsFile): void {
+async function writeSettings(settings: SettingsFile): Promise<void> {
   const dir = path.dirname(SETTINGS_PATH)
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+  if (!(await pathExists(dir))) {
+    await fsPromises.mkdir(dir, { recursive: true })
   }
   const tmpPath = SETTINGS_PATH + '.tmp'
-  fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2))
+  await fsPromises.writeFile(tmpPath, JSON.stringify(settings, null, 2))
   fs.renameSync(tmpPath, SETTINGS_PATH)
 }
 
-export function getProxySettings(): ProxySettings {
-  const settings = readSettings()
+export async function getProxySettings(): Promise<ProxySettings> {
+  const settings = await readSettings()
   return settings.proxy ?? {
     isEnabled: false,
     type: 'https',
@@ -64,7 +70,7 @@ function toElectronProxyConfig(proxy: ProxySettings): ProxyConfig {
 }
 
 export async function applyProxySettingsToElectronSession(): Promise<void> {
-  await session.defaultSession.setProxy(toElectronProxyConfig(getProxySettings()))
+  await session.defaultSession.setProxy(toElectronProxyConfig(await getProxySettings()))
 }
 
 async function invalidateNetworkSessionCache(): Promise<void> {
@@ -79,9 +85,9 @@ export async function setProxySettings(input: SetProxySettingsInput): Promise<vo
     await keychainService.setPassword(PROXY_PASSWORD_KEY, input.password)
   }
 
-  const settings = readSettings()
+  const settings = await readSettings()
   settings.proxy = input.proxy
-  writeSettings(settings)
+  await writeSettings(settings)
 
   await invalidateNetworkSessionCache()
   await applyProxySettingsToElectronSession()

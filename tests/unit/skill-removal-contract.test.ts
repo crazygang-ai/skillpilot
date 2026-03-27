@@ -30,6 +30,10 @@ async function loadSkillManagerContract() {
     existsSync: vi.fn(() => true),
     rmSync: vi.fn(),
   }
+  const mockFsPromises = {
+    rm: vi.fn().mockResolvedValue(undefined),
+    access: vi.fn().mockResolvedValue(undefined),
+  }
   const removeEntry = vi.fn()
   const updateEntry = vi.fn()
   const invalidateCache = vi.fn()
@@ -43,6 +47,7 @@ async function loadSkillManagerContract() {
   }
 
   vi.doMock('fs', () => ({ default: mockFs }))
+  vi.doMock('fs/promises', () => ({ default: mockFsPromises }))
   vi.doMock('../../electron/services/agent-detector', () => ({
     detectAll: vi.fn().mockResolvedValue([]),
   }))
@@ -89,6 +94,7 @@ async function loadSkillManagerContract() {
   return {
     SkillManager: module.SkillManager,
     mockFs,
+    mockFsPromises,
     removeSymlink,
     removeEntry,
     removeCommitHash,
@@ -190,7 +196,7 @@ describe('skill removal contract', () => {
   })
 
   it('removes only the requested direct local installation directory', async () => {
-    const { SkillManager, mockFs, removeSymlink, removeEntry, removeCommitHash } =
+    const { SkillManager, mockFsPromises, removeSymlink, removeEntry, removeCommitHash } =
       await loadSkillManagerContract()
     const manager = new SkillManager()
     manager.skills = [
@@ -209,18 +215,18 @@ describe('skill removal contract', () => {
 
     await manager.removeLocalInstallation('opaque-skill-id', AgentType.CURSOR)
 
-    expect(mockFs.rmSync).toHaveBeenCalledWith('/Users/test/.cursor/skills/shared-skill', {
+    expect(mockFsPromises.rm).toHaveBeenCalledWith('/Users/test/.cursor/skills/shared-skill', {
       recursive: true,
       force: true,
     })
-    expect(mockFs.rmSync).not.toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', expect.anything())
+    expect(mockFsPromises.rm).not.toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', expect.anything())
     expect(removeSymlink).not.toHaveBeenCalled()
     expect(removeEntry).not.toHaveBeenCalled()
     expect(removeCommitHash).not.toHaveBeenCalled()
   })
 
   it('keeps destructive delete behavior separate', async () => {
-    const { SkillManager, mockFs, removeSymlink, removeEntry, removeCommitHash } =
+    const { SkillManager, mockFsPromises, removeSymlink, removeEntry, removeCommitHash } =
       await loadSkillManagerContract()
     const manager = new SkillManager()
     manager.skills = [
@@ -240,7 +246,7 @@ describe('skill removal contract', () => {
     await manager.deleteSkill('opaque-skill-id')
 
     expect(removeSymlink).toHaveBeenCalledWith('shared-skill', AgentType.CLAUDE)
-    expect(mockFs.rmSync).toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', {
+    expect(mockFsPromises.rm).toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', {
       recursive: true,
       force: true,
     })

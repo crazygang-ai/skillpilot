@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import {
   Skill, SkillUpdateStatus, SkillUpdateCheckResult, SkillUpdateApplyResult,
@@ -9,6 +9,15 @@ import * as commitHashCache from './commit-hash-cache'
 import * as updateChecker from './update-checker'
 import { copyDirectoryWithoutSymlinks } from './local-skill-importer'
 import { safeGetTreeHash, safeGetCommitHash } from './skill-install-service'
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fsPromises.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export class SkillUpdateService {
   readonly updateStatuses = new Map<string, SkillUpdateStatus>()
@@ -29,7 +38,7 @@ export class SkillUpdateService {
           stableId: skill.id,
           skillFolderHash: result.localTreeHash,
         }
-        lockFileManager.updateEntry(skillId, repairedLockEntry)
+        await lockFileManager.updateEntry(skillId, repairedLockEntry)
         skill.lockEntry = repairedLockEntry
       }
 
@@ -76,19 +85,19 @@ export class SkillUpdateService {
         throw new Error(`Skill path escapes repo directory: ${skillFolderPath}`)
       }
 
-      if (!fs.existsSync(sourceDir)) {
+      if (!await pathExists(sourceDir)) {
         throw new Error(`Skill source not found in repository: ${skill.lockEntry.skillPath}`)
       }
 
       const destDir = skill.canonicalPath
-      fs.rmSync(destDir, { recursive: true, force: true })
-      copyDirectoryWithoutSymlinks(sourceDir, destDir)
+      await fsPromises.rm(destDir, { recursive: true, force: true })
+      await copyDirectoryWithoutSymlinks(sourceDir, destDir)
 
       const treeHash = await safeGetTreeHash(sourceDir, repoDir)
       const commitHash = await safeGetCommitHash(repoDir)
       const now = new Date().toISOString()
 
-      lockFileManager.updateEntry(skillId, {
+      await lockFileManager.updateEntry(skillId, {
         ...skill.lockEntry,
         stableId: skill.id,
         skillFolderHash: treeHash,
@@ -96,7 +105,7 @@ export class SkillUpdateService {
       })
 
       if (commitHash) {
-        commitHashCache.setCommitHash(skillId, commitHash)
+        await commitHashCache.setCommitHash(skillId, commitHash)
       }
 
       this.updateStatuses.set(skillId, 'upToDate')
@@ -115,14 +124,17 @@ export class SkillUpdateService {
     }
   }
 
-  restoreTransientFields(skills: Skill[]): Skill[] {
-    return skills.map(skill => ({
-      ...skill,
-      updateStatus: this.updateStatuses.get(skill.id) ?? 'notChecked',
-      hasUpdate: this.updateStatuses.get(skill.id) === 'hasUpdate',
-      remoteTreeHash: this.cachedRemoteTreeHashes.get(skill.id),
-      remoteCommitHash: this.cachedRemoteCommitHashes.get(skill.id),
-      localCommitHash: commitHashCache.getCommitHash(skill.id) ?? commitHashCache.getCommitHash(skill.storageName),
+  async restoreTransientFields(skills: Skill[]): Promise<Skill[]> {
+    return Promise.all(skills.map(async skill => {
+      const localCommitHash = await commitHashCache.getCommitHash(skill.id) ?? await commitHashCache.getCommitHash(skill.storageName)
+      return {
+        ...skill,
+        updateStatus: this.updateStatuses.get(skill.id) ?? 'notChecked',
+        hasUpdate: this.updateStatuses.get(skill.id) === 'hasUpdate',
+        remoteTreeHash: this.cachedRemoteTreeHashes.get(skill.id),
+        remoteCommitHash: this.cachedRemoteCommitHashes.get(skill.id),
+        localCommitHash,
+      }
     }))
   }
 

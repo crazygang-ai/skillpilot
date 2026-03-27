@@ -17,6 +17,7 @@ export const IPC_CHANNELS = {
     CHECK_ALL_UPDATES: 'skill:checkAllUpdates',
     UPDATE_SKILL: 'skill:updateSkill',
     ON_STATE_CHANGED: 'skill:onStateChanged',
+    ON_REFRESH_FAILED: 'skill:onRefreshFailed',
   },
   REGISTRY: {
     LEADERBOARD: 'registry:leaderboard',

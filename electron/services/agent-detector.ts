@@ -1,8 +1,12 @@
 import { execFile } from 'child_process'
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import { Agent, AgentType } from '../../shared/types'
 import { AGENT_CONFIGS, AgentConfig } from '../types/agent-config'
 import { SHARED_SKILLS_DIR } from '../utils/constants'
+
+async function pathExists(p: string): Promise<boolean> {
+  try { await fsPromises.access(p); return true } catch { return false }
+}
 
 function detectCommand(command: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -12,18 +16,22 @@ function detectCommand(command: string): Promise<boolean> {
   })
 }
 
-function countSkills(dirPath: string): number {
+async function countSkills(dirPath: string): Promise<number> {
   try {
-    if (!fs.existsSync(dirPath)) return 0
-    return fs.readdirSync(dirPath).filter(name => {
-      if (name.startsWith('.')) return false
-      const fullPath = fs.realpathSync(`${dirPath}/${name}`)
+    if (!(await pathExists(dirPath))) return 0
+    const entries = await fsPromises.readdir(dirPath)
+    let count = 0
+    for (const name of entries) {
+      if (name.startsWith('.')) continue
+      const fullPath = await fsPromises.realpath(`${dirPath}/${name}`)
       try {
-        return fs.statSync(fullPath).isDirectory()
+        const stat = await fsPromises.stat(fullPath)
+        if (stat.isDirectory()) count++
       } catch {
-        return false
+        // skip entries that can't be stat'd
       }
-    }).length
+    }
+    return count
   } catch {
     return 0
   }
@@ -31,9 +39,9 @@ function countSkills(dirPath: string): number {
 
 async function detectAgent(config: AgentConfig): Promise<Agent> {
   const cliExists = await detectCommand(config.detectCommand)
-  const configDirExists = fs.existsSync(config.configDirectoryPath)
-  const skillsDirExists = fs.existsSync(config.skillsDirectoryPath)
-  const skillCount = countSkills(config.skillsDirectoryPath)
+  const configDirExists = await pathExists(config.configDirectoryPath)
+  const skillsDirExists = await pathExists(config.skillsDirectoryPath)
+  const skillCount = await countSkills(config.skillsDirectoryPath)
 
   return {
     type: config.type,

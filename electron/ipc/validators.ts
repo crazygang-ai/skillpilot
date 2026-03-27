@@ -58,6 +58,31 @@ export function assertValidAgentTypes(values: unknown): asserts values is AgentT
   }
 }
 
+const ALLOWED_GIT_HOSTS = new Set(['github.com', 'gitlab.com', 'bitbucket.org'])
+
+export function assertValidRepoUrl(value: unknown): asserts value is string {
+  assertString(value, 'repoUrl')
+  const trimmed = (value as string).trim()
+
+  if (OWNER_REPO_RE.test(trimmed)) return
+
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new Error(`Invalid repository URL: ${trimmed}`)
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Only HTTPS git URLs are allowed, got ${parsed.protocol} in: ${trimmed}`)
+  }
+
+  const host = parsed.hostname.toLowerCase()
+  if (!ALLOWED_GIT_HOSTS.has(host)) {
+    throw new Error(`Git host not in allowlist: ${host}. Allowed: ${[...ALLOWED_GIT_HOSTS].join(', ')}`)
+  }
+}
+
 export function assertAllowedPath(filePath: unknown): asserts filePath is string {
   if (typeof filePath !== 'string') {
     throw new Error('Path must be a string')
@@ -80,7 +105,7 @@ export function validateInstallInput(input: unknown): InstallInput {
   assertPlainObject(input, 'install input')
 
   const { repoUrl, agentTypes, source, skillId } = input
-  assertString(repoUrl, 'repoUrl')
+  assertValidRepoUrl(repoUrl)
   assertValidAgentTypes(agentTypes)
 
   if (source !== 'github' && source !== 'local') {

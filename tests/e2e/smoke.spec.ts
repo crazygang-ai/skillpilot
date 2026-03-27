@@ -20,11 +20,9 @@ test.describe('Smoke Test', () => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Window should be visible
     const title = await window.title()
     expect(title).toBeTruthy()
 
-    // Root container should be attached even in headless/offscreen runs.
     await expect(window.locator('#root')).toBeAttached()
 
     await electronApp.close()
@@ -39,11 +37,9 @@ test.describe('Smoke Test', () => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Sidebar should contain key navigation items
-    const sidebar = window.locator('[class*="w-56"], nav, aside').first()
+    const sidebar = window.locator('[data-testid="sidebar"]')
     await expect(sidebar).toBeVisible({ timeout: 10000 })
 
-    // Should show SkillPilot branding
     const brand = window.locator('text=SkillPilot').first()
     await expect(brand).toBeVisible({ timeout: 10000 })
 
@@ -59,20 +55,13 @@ test.describe('Smoke Test', () => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Click on Dashboard navigation
-    const dashboardBtn = window.locator('button:has-text("Dashboard"), [data-view="dashboard"]').first()
-    if (await dashboardBtn.isVisible()) {
-      await dashboardBtn.click()
-      // Dashboard should load
-      await window.waitForTimeout(500)
-    }
+    const dashboardBtn = window.locator('[data-testid="nav-dashboard"]')
+    await expect(dashboardBtn).toBeVisible({ timeout: 10000 })
+    await dashboardBtn.click()
 
-    // Click on Registry navigation
-    const registryBtn = window.locator('button:has-text("Registry"), button:has-text("skills.sh"), [data-view="registry"]').first()
-    if (await registryBtn.isVisible()) {
-      await registryBtn.click()
-      await window.waitForTimeout(500)
-    }
+    const registryBtn = window.locator('[data-testid="nav-registry"]')
+    await expect(registryBtn).toBeVisible({ timeout: 5000 })
+    await registryBtn.click()
 
     await electronApp.close()
   })

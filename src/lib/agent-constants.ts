@@ -1,30 +1,12 @@
-export const AGENT_DISPLAY_NAMES: Record<string, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex',
-  gemini: 'Gemini CLI',
-  copilot: 'Copilot CLI',
-  opencode: 'OpenCode',
-  antigravity: 'Antigravity',
-  cursor: 'Cursor',
-  kiro: 'Kiro',
-  codebuddy: 'CodeBuddy',
-  openclaw: 'OpenClaw',
-  trae: 'Trae',
-}
+import { AGENT_BRANDS } from '@shared/agent-metadata'
 
-export const AGENT_BRAND_COLORS: Record<string, string> = {
-  claude: '#d97706',
-  codex: '#16a34a',
-  gemini: '#2563eb',
-  copilot: '#4f46e5',
-  opencode: '#dc2626',
-  antigravity: '#9333ea',
-  cursor: '#0891b2',
-  kiro: '#db2777',
-  codebuddy: '#ea580c',
-  openclaw: '#0d9488',
-  trae: '#7c3aed',
-}
+export const AGENT_DISPLAY_NAMES: Record<string, string> = Object.fromEntries(
+  Object.values(AGENT_BRANDS).map(b => [b.type, b.displayName])
+)
+
+export const AGENT_BRAND_COLORS: Record<string, string> = Object.fromEntries(
+  Object.values(AGENT_BRANDS).map(b => [b.type, b.brandColor])
+)
 
 export const AGENT_TEXT_COLORS: Record<string, string> = {
   claude: 'text-agent-claude',

@@ -1,4 +1,5 @@
 import { AgentType } from '../../shared/types'
+import { AGENT_BRANDS } from '../../shared/agent-metadata'
 import os from 'os'
 import path from 'path'
 
@@ -25,8 +26,8 @@ export type ReadableSkillsDirectory =
 export const AGENT_CONFIGS: AgentConfig[] = [
   {
     type: AgentType.CLAUDE,
-    displayName: 'Claude Code',
-    brandColor: '#d97706',
+    displayName: AGENT_BRANDS[AgentType.CLAUDE].displayName,
+    brandColor: AGENT_BRANDS[AgentType.CLAUDE].brandColor,
     detectCommand: 'claude',
     configDirectoryPath: path.join(HOME, '.claude'),
     skillsDirectoryPath: path.join(HOME, '.claude', 'skills'),
@@ -34,8 +35,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.CODEX,
-    displayName: 'Codex',
-    brandColor: '#22c55e',
+    displayName: AGENT_BRANDS[AgentType.CODEX].displayName,
+    brandColor: AGENT_BRANDS[AgentType.CODEX].brandColor,
     detectCommand: 'codex',
     configDirectoryPath: path.join(HOME, '.codex'),
     skillsDirectoryPath: path.join(HOME, '.codex', 'skills'),
@@ -45,8 +46,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.GEMINI,
-    displayName: 'Gemini CLI',
-    brandColor: '#4285f4',
+    displayName: AGENT_BRANDS[AgentType.GEMINI].displayName,
+    brandColor: AGENT_BRANDS[AgentType.GEMINI].brandColor,
     detectCommand: 'gemini',
     configDirectoryPath: path.join(HOME, '.gemini'),
     skillsDirectoryPath: path.join(HOME, '.gemini', 'skills'),
@@ -56,8 +57,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.COPILOT,
-    displayName: 'Copilot CLI',
-    brandColor: '#6366f1',
+    displayName: AGENT_BRANDS[AgentType.COPILOT].displayName,
+    brandColor: AGENT_BRANDS[AgentType.COPILOT].brandColor,
     detectCommand: 'gh',
     configDirectoryPath: path.join(HOME, '.copilot'),
     skillsDirectoryPath: path.join(HOME, '.copilot', 'skills'),
@@ -67,8 +68,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.OPENCODE,
-    displayName: 'OpenCode',
-    brandColor: '#ef4444',
+    displayName: AGENT_BRANDS[AgentType.OPENCODE].displayName,
+    brandColor: AGENT_BRANDS[AgentType.OPENCODE].brandColor,
     detectCommand: 'opencode',
     configDirectoryPath: path.join(HOME, '.config', 'opencode'),
     skillsDirectoryPath: path.join(HOME, '.config', 'opencode', 'skills'),
@@ -79,8 +80,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.ANTIGRAVITY,
-    displayName: 'Antigravity',
-    brandColor: '#a855f7',
+    displayName: AGENT_BRANDS[AgentType.ANTIGRAVITY].displayName,
+    brandColor: AGENT_BRANDS[AgentType.ANTIGRAVITY].brandColor,
     detectCommand: 'antigravity',
     configDirectoryPath: path.join(HOME, '.gemini'),
     skillsDirectoryPath: path.join(HOME, '.gemini', 'antigravity', 'skills'),
@@ -88,8 +89,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.CURSOR,
-    displayName: 'Cursor',
-    brandColor: '#06b6d4',
+    displayName: AGENT_BRANDS[AgentType.CURSOR].displayName,
+    brandColor: AGENT_BRANDS[AgentType.CURSOR].brandColor,
     detectCommand: 'cursor',
     configDirectoryPath: path.join(HOME, '.cursor'),
     skillsDirectoryPath: path.join(HOME, '.cursor', 'skills'),
@@ -100,8 +101,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.KIRO,
-    displayName: 'Kiro',
-    brandColor: '#ec4899',
+    displayName: AGENT_BRANDS[AgentType.KIRO].displayName,
+    brandColor: AGENT_BRANDS[AgentType.KIRO].brandColor,
     detectCommand: 'kiro',
     configDirectoryPath: path.join(HOME, '.kiro'),
     skillsDirectoryPath: path.join(HOME, '.kiro', 'skills'),
@@ -109,8 +110,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.CODEBUDDY,
-    displayName: 'CodeBuddy',
-    brandColor: '#f97316',
+    displayName: AGENT_BRANDS[AgentType.CODEBUDDY].displayName,
+    brandColor: AGENT_BRANDS[AgentType.CODEBUDDY].brandColor,
     detectCommand: 'codebuddy',
     configDirectoryPath: path.join(HOME, '.codebuddy'),
     skillsDirectoryPath: path.join(HOME, '.codebuddy', 'skills'),
@@ -118,8 +119,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.OPENCLAW,
-    displayName: 'OpenClaw',
-    brandColor: '#14b8a6',
+    displayName: AGENT_BRANDS[AgentType.OPENCLAW].displayName,
+    brandColor: AGENT_BRANDS[AgentType.OPENCLAW].brandColor,
     detectCommand: 'openclaw',
     configDirectoryPath: path.join(HOME, '.openclaw'),
     skillsDirectoryPath: path.join(HOME, '.openclaw', 'skills'),
@@ -127,8 +128,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
   },
   {
     type: AgentType.TRAE,
-    displayName: 'Trae',
-    brandColor: '#8b5cf6',
+    displayName: AGENT_BRANDS[AgentType.TRAE].displayName,
+    brandColor: AGENT_BRANDS[AgentType.TRAE].brandColor,
     detectCommand: 'trae',
     configDirectoryPath: path.join(HOME, '.trae'),
     skillsDirectoryPath: path.join(HOME, '.trae', 'skills'),

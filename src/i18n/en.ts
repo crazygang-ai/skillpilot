@@ -87,6 +87,14 @@ const en = {
     repoUrl: 'Repository URL',
     importSuccess: 'Successfully imported {{count}} skill(s)',
     importFailed: 'Import failed: {{error}}',
+    github: {
+      title: 'Import from GitHub',
+      repoLabel: 'GitHub Repository',
+      placeholder: 'owner/repo or full GitHub URL',
+      hint: 'Repository will be scanned for SKILL.md files automatically.',
+      importBtn: 'Import',
+    },
+    targetAgents: 'Target Agents',
     local: {
       title: 'Install from Local Directory',
       directoryLabel: 'Skill Directory',
@@ -148,6 +156,7 @@ const en = {
     title: 'Settings',
     about: 'About',
     language: 'Language',
+    displayLanguage: 'Display Language',
     proxy: 'Proxy',
     optional: 'optional',
     appVersion: 'Version',

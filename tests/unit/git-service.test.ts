@@ -52,7 +52,7 @@ describe('GitService', () => {
   })
 
   describe('scanSkillsInRepo', () => {
-    it('finds SKILL.md files in directory structure', () => {
+    it('finds SKILL.md files in directory structure', async () => {
       const tmpDir = path.join(os.tmpdir(), 'skillpilot-test-scan-' + Date.now())
       try {
         // Create test structure
@@ -63,7 +63,7 @@ describe('GitService', () => {
         fs.writeFileSync(path.join(skill1Dir, 'SKILL.md'), '# A')
         fs.writeFileSync(path.join(skill2Dir, 'SKILL.md'), '# B')
 
-        const results = scanSkillsInRepo(tmpDir)
+        const results = await scanSkillsInRepo(tmpDir)
         expect(results).toHaveLength(2)
         expect(results.some(r => r.includes('skill-a'))).toBe(true)
         expect(results.some(r => r.includes('skill-b'))).toBe(true)
@@ -72,7 +72,7 @@ describe('GitService', () => {
       }
     })
 
-    it('skips hidden directories and node_modules', () => {
+    it('skips hidden directories and node_modules', async () => {
       const tmpDir = path.join(os.tmpdir(), 'skillpilot-test-skip-' + Date.now())
       try {
         const hiddenDir = path.join(tmpDir, '.hidden', 'skill')
@@ -82,14 +82,14 @@ describe('GitService', () => {
         fs.writeFileSync(path.join(hiddenDir, 'SKILL.md'), '# Hidden')
         fs.writeFileSync(path.join(nmDir, 'SKILL.md'), '# NM')
 
-        const results = scanSkillsInRepo(tmpDir)
+        const results = await scanSkillsInRepo(tmpDir)
         expect(results).toHaveLength(0)
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true })
       }
     })
 
-    it('does not recurse into skill directories', () => {
+    it('does not recurse into skill directories', async () => {
       const tmpDir = path.join(os.tmpdir(), 'skillpilot-test-norecurse-' + Date.now())
       try {
         const skillDir = path.join(tmpDir, 'my-skill')
@@ -98,7 +98,7 @@ describe('GitService', () => {
         fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# Top')
         fs.writeFileSync(path.join(nestedDir, 'SKILL.md'), '# Nested')
 
-        const results = scanSkillsInRepo(tmpDir)
+        const results = await scanSkillsInRepo(tmpDir)
         expect(results).toHaveLength(1) // Only top-level skill
         expect(results[0]).toBe(skillDir)
       } finally {

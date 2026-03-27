@@ -17,35 +17,35 @@ export function getAgentStatePresentation(
   switch (agentState) {
     case 'linked':
       return {
-        label: 'Linked',
+        label: 'skillDetail.linked',
         color: 'text-success',
         bgColor: 'bg-success/15',
-        actionLabel: 'Unassign',
+        actionLabel: 'skillDetail.unassign',
         actionVariant: 'ghost',
         canAct: true,
       }
     case 'installed':
       return {
-        label: 'Installed',
+        label: 'skillDetail.installed',
         color: 'text-accent',
         bgColor: 'bg-accent/15',
-        actionLabel: 'Remove Local',
+        actionLabel: 'skillDetail.removeLocal',
         actionVariant: 'danger',
         canAct: true,
       }
     case 'builtin':
       return {
-        label: 'Builtin',
+        label: 'skillDetail.builtin',
         color: 'text-text-muted',
         bgColor: 'bg-text-muted/15',
         canAct: false,
       }
     default:
       return {
-        label: 'Not Assigned',
+        label: 'skillDetail.notAssigned',
         color: 'text-text-secondary',
         bgColor: 'bg-transparent',
-        actionLabel: 'Assign',
+        actionLabel: 'skillDetail.assign',
         actionVariant: 'primary',
         canAct: true,
       }

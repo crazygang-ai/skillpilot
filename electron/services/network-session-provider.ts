@@ -1,10 +1,19 @@
 import https from 'https'
 import http from 'http'
+import { app } from 'electron'
 import { getProxySettings } from './proxy-settings'
 import * as keychainService from './keychain-service'
 import type { ProxySettings } from '../../shared/types'
 
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024 // 10 MB
+
+function getUserAgent(): string {
+  try {
+    return `SkillPilot/${app.getVersion()}`
+  } catch {
+    return 'SkillPilot/0.1.0'
+  }
+}
 
 interface FetchOptions {
   method?: string
@@ -76,7 +85,7 @@ async function buildProxyAgent(proxy: ProxySettings): Promise<http.Agent | https
 }
 
 export async function fetch(url: string, options: FetchOptions = {}): Promise<FetchResponse> {
-  const proxy = getProxySettings()
+  const proxy = await getProxySettings()
   const agent = shouldBypassProxy(url, proxy)
     ? undefined
     : await buildProxyAgent(proxy)
@@ -90,7 +99,7 @@ export async function fetch(url: string, options: FetchOptions = {}): Promise<Fe
     const reqOptions: https.RequestOptions = {
       method: options.method ?? 'GET',
       headers: {
-        'User-Agent': 'SkillPilot/0.1.0',
+        'User-Agent': getUserAgent(),
         ...options.headers,
       },
       timeout: options.timeout ?? 30000,

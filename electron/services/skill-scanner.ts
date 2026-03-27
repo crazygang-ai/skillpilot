@@ -1,5 +1,6 @@
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
+import log from 'electron-log'
 import { Skill, SkillScope, AgentType, SkillInstallation } from '../../shared/types'
 import { AGENT_CONFIGS } from '../types/agent-config'
 import { SHARED_SKILLS_DIR } from '../utils/constants'
@@ -10,6 +11,15 @@ import {
   resolveDirectoryName,
   resolveStableSkillId,
 } from './skill-identity'
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fsPromises.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
 
 interface ScannedSkill {
   id: string
@@ -26,14 +36,14 @@ interface ScannedSkill {
  */
 export async function scanAll(): Promise<Skill[]> {
   const skillMap = new Map<string, ScannedSkill>()
-  const lockEntries = lockFileManager.read().skills
+  const lockEntries = (await lockFileManager.read()).skills
 
   // 1. Scan shared global directory
-  scanDirectory(SHARED_SKILLS_DIR, { kind: 'sharedGlobal' }, skillMap, lockEntries)
+  await scanDirectory(SHARED_SKILLS_DIR, { kind: 'sharedGlobal' }, skillMap, lockEntries)
 
   // 2. Scan each agent's skill directory
   for (const config of AGENT_CONFIGS) {
-    scanDirectory(
+    await scanDirectory(
       config.skillsDirectoryPath,
       { kind: 'agentLocal', agentType: config.type },
       skillMap,
@@ -44,7 +54,7 @@ export async function scanAll(): Promise<Skill[]> {
   // 3. Parse each skill's SKILL.md and build full Skill objects
   const skills: Skill[] = []
   for (const [skillId, scanned] of skillMap) {
-    const skill = buildSkill(skillId, scanned)
+    const skill = await buildSkill(skillId, scanned)
     if (skill) skills.push(skill)
   }
 
@@ -54,18 +64,19 @@ export async function scanAll(): Promise<Skill[]> {
   return skills
 }
 
-function scanDirectory(
+async function scanDirectory(
   dirPath: string,
   defaultScope: SkillScope,
   skillMap: Map<string, ScannedSkill>,
   lockEntries: Record<string, Skill['lockEntry']>,
-): void {
-  if (!fs.existsSync(dirPath)) return
+): Promise<void> {
+  if (!await pathExists(dirPath)) return
 
   let entries: string[]
   try {
-    entries = fs.readdirSync(dirPath)
-  } catch {
+    entries = await fsPromises.readdir(dirPath)
+  } catch (err) {
+    log.warn('Failed to read skill directory:', dirPath, err)
     return
   }
 
@@ -74,13 +85,14 @@ function scanDirectory(
 
     const fullPath = path.join(dirPath, entry)
     try {
-      const stat = fs.lstatSync(fullPath)
+      const stat = await fsPromises.lstat(fullPath)
       if (!stat.isDirectory() && !stat.isSymbolicLink()) continue
-    } catch {
+    } catch (err) {
+      log.warn('Failed to stat entry:', fullPath, err)
       continue
     }
 
-    const canonicalPath = symlinkManager.resolveCanonical(fullPath)
+    const canonicalPath = await symlinkManager.resolveCanonical(fullPath)
     const storageName = entry
     const initialLockEntry = lockEntries[storageName]
     const resolvedSkillId = resolveStableSkillId(canonicalPath, initialLockEntry)
@@ -88,17 +100,14 @@ function scanDirectory(
     const skillId = resolveStableSkillId(canonicalPath, lockEntry)
     const directoryName = resolveDirectoryName(storageName, canonicalPath, lockEntry)
 
-    // Check if this skill directory contains SKILL.md
     const skillMdPath = path.join(canonicalPath, 'SKILL.md')
-    if (!fs.existsSync(skillMdPath)) continue
+    if (!await pathExists(skillMdPath)) continue
 
     if (skillMap.has(skillId)) {
-      // Merge: add installation to existing skill
       const existing = skillMap.get(skillId)!
-      mergeInstallation(existing, storageName, canonicalPath)
+      await mergeInstallation(existing, storageName, canonicalPath)
     } else {
-      // New skill
-      const installations = symlinkManager.findInstallations(storageName, canonicalPath)
+      const installations = await symlinkManager.findInstallations(storageName, canonicalPath)
       const storageScope = resolveStorageScope(canonicalPath, defaultScope)
       skillMap.set(skillId, {
         id: skillId,
@@ -122,25 +131,25 @@ function resolveStorageScope(canonicalPath: string, defaultScope: SkillScope): S
   return defaultScope
 }
 
-function mergeInstallation(
+async function mergeInstallation(
   skill: ScannedSkill,
   storageName: string,
   canonicalPath: string,
-): void {
+): Promise<void> {
   const existingPaths = new Set(skill.installations.map((installation) => installation.path))
-  for (const installation of symlinkManager.findInstallations(storageName, canonicalPath)) {
+  for (const installation of await symlinkManager.findInstallations(storageName, canonicalPath)) {
     if (!existingPaths.has(installation.path)) {
       skill.installations.push(installation)
     }
   }
 }
 
-function buildSkill(skillId: string, scanned: ScannedSkill): Skill | null {
+async function buildSkill(skillId: string, scanned: ScannedSkill): Promise<Skill | null> {
   const skillMdPath = path.join(scanned.canonicalPath, 'SKILL.md')
-  if (!fs.existsSync(skillMdPath)) return null
+  if (!await pathExists(skillMdPath)) return null
 
   try {
-    const { metadata, markdownBody } = skillMDParser.parseFile(skillMdPath)
+    const { metadata, markdownBody } = await skillMDParser.parseFile(skillMdPath)
     const lockEntry = scanned.lockEntry
       ? {
           ...scanned.lockEntry,
@@ -164,7 +173,8 @@ function buildSkill(skillId: string, scanned: ScannedSkill): Skill | null {
       hasUpdate: false,
       updateStatus: 'notChecked',
     }
-  } catch {
+  } catch (err) {
+    log.warn('Failed to parse SKILL.md:', skillMdPath, err)
     return null
   }
 }

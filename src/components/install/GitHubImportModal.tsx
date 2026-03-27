@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { X, GitBranch, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useInstallSkill } from '@/hooks/useSkills'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -23,6 +24,7 @@ function normalizeUrl(url: string): string {
 }
 
 export default function GitHubImportModal({ onClose }: GitHubImportModalProps) {
+  const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
   const installSkill = useInstallSkill()
@@ -40,13 +42,13 @@ export default function GitHubImportModal({ onClose }: GitHubImportModalProps) {
         source: 'github',
       })
       if (result.success) {
-        addNotification('success', `Imported ${result.skillCount ?? 1} skill(s) from GitHub`)
+        addNotification('success', t('install.importSuccess', { count: result.skillCount ?? 1 }))
         onClose()
       } else {
-        addNotification('error', result.error ?? 'Import failed')
+        addNotification('error', t('install.importFailed', { error: result.error ?? 'Unknown' }))
       }
     } catch (err) {
-      addNotification('error', err instanceof Error ? err.message : 'Import failed')
+      addNotification('error', t('install.importFailed', { error: err instanceof Error ? err.message : 'Unknown' }))
     }
   }
 
@@ -55,7 +57,7 @@ export default function GitHubImportModal({ onClose }: GitHubImportModalProps) {
       <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-text-primary">Import from GitHub</h2>
+          <h2 className="text-lg font-semibold text-text-primary">{t('install.github.title')}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary">
             <X className="w-5 h-5" />
           </button>
@@ -65,25 +67,25 @@ export default function GitHubImportModal({ onClose }: GitHubImportModalProps) {
         <div className="px-5 py-4 space-y-5">
           {/* Agent selector */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">Target Agents</label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">{t('install.targetAgents')}</label>
             <AgentSelector selected={selectedAgents} onChange={setSelectedAgents} />
           </div>
 
           {/* URL input */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">GitHub Repository</label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">{t('install.github.repoLabel')}</label>
             <div className="flex items-center gap-2 bg-bg-tertiary border border-border rounded-lg px-3 py-2">
               <GitBranch className="w-4 h-4 text-text-muted shrink-0" />
               <input
                 type="text"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="owner/repo or full GitHub URL"
+                placeholder={t('install.github.placeholder')}
                 className="flex-1 bg-transparent text-text-primary text-sm outline-none placeholder:text-text-muted"
               />
             </div>
             <p className="mt-1.5 text-xs text-text-muted">
-              Repository will be scanned for SKILL.md files automatically.
+              {t('install.github.hint')}
             </p>
           </div>
         </div>
@@ -94,7 +96,7 @@ export default function GitHubImportModal({ onClose }: GitHubImportModalProps) {
             onClick={onClose}
             className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary rounded-lg"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleImport}
@@ -107,7 +109,7 @@ export default function GitHubImportModal({ onClose }: GitHubImportModalProps) {
             )}
           >
             {installSkill.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Import
+            {t('install.github.importBtn')}
           </button>
         </div>
       </div>

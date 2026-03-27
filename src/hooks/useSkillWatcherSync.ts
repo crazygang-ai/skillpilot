@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNotificationStore } from '@/stores/notificationStore'
 import api from '@/services/ipcClient'
 
 const WATCHER_DEBOUNCE_MS = 150
@@ -11,6 +12,7 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>) {
 
 export function useSkillWatcherSync() {
   const queryClient = useQueryClient()
+  const addNotification = useNotificationStore((s) => s.addNotification)
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -24,10 +26,15 @@ export function useSkillWatcherSync() {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
     })
 
+    const unsubRefreshFailed = api.skills.onRefreshFailed((message: string) => {
+      addNotification('error', `Skill refresh failed: ${message}`)
+    })
+
     return () => {
       if (timeoutId) clearTimeout(timeoutId)
       unsubWatcher()
       unsubState()
+      unsubRefreshFailed()
     }
-  }, [queryClient])
+  }, [queryClient, addNotification])
 }

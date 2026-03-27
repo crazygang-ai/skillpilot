@@ -22,6 +22,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm lint
 
   test:
     runs-on: macos-latest
@@ -33,6 +34,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm run preload:build && tsc -p tsconfig.electron.json
       - run: pnpm test
 
   build:

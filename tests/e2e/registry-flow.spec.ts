@@ -20,21 +20,12 @@ test.describe('Registry Flow', () => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Navigate to registry view
-    const registryBtn = window.locator('button:has-text("skills.sh"), button:has-text("Registry")').first()
-    if (await registryBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await registryBtn.click()
-      await window.waitForTimeout(1000)
+    const registryBtn = window.locator('[data-testid="nav-registry"]')
+    await expect(registryBtn).toBeVisible({ timeout: 5000 })
+    await registryBtn.click()
 
-      // Should see search input or leaderboard tabs
-      const searchInput = window.locator('input[placeholder*="Search"], input[type="search"]').first()
-      const hasSearch = await searchInput.isVisible({ timeout: 5000 }).catch(() => false)
-
-      // Either search input or some registry content should be visible
-      if (hasSearch) {
-        await expect(searchInput).toBeVisible()
-      }
-    }
+    const searchInput = window.locator('input[placeholder*="Search"]').first()
+    await expect(searchInput).toBeVisible({ timeout: 10000 })
 
     await electronApp.close()
   })
@@ -54,7 +45,7 @@ test.describe('Registry Flow', () => {
     await electronApp.close()
   })
 
-  test('settings modal opens and shows tabs', async () => {
+  test('settings view opens and shows tabs', async () => {
     const electronApp = await electron.launch({
       args: [MAIN_JS],
       env: createLaunchEnv(),
@@ -63,19 +54,12 @@ test.describe('Registry Flow', () => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
 
-    // Click settings button
-    const settingsBtn = window.locator('button:has-text("Settings"), button[aria-label="Settings"]').first()
-    if (await settingsBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await settingsBtn.click()
-      await window.waitForTimeout(500)
+    const settingsBtn = window.locator('[data-testid="nav-settings"]')
+    await expect(settingsBtn).toBeVisible({ timeout: 5000 })
+    await settingsBtn.click()
 
-      // Should show modal with tabs: About, Language, Proxy
-      const aboutTab = window.locator('text=About').first()
-      const hasAbout = await aboutTab.isVisible({ timeout: 3000 }).catch(() => false)
-      if (hasAbout) {
-        await expect(aboutTab).toBeVisible()
-      }
-    }
+    const aboutTab = window.locator('text=About').first()
+    await expect(aboutTab).toBeVisible({ timeout: 5000 })
 
     await electronApp.close()
   })

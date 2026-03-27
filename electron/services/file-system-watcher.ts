@@ -8,8 +8,16 @@ export class FileSystemWatcher extends EventEmitter {
   private watchedPaths: string[] = []
 
   startWatching(paths: string[]): void {
+    const filtered = paths.filter(Boolean).sort()
+    if (
+      this.watcher &&
+      filtered.length === this.watchedPaths.length &&
+      filtered.every((p, i) => p === this.watchedPaths[i])
+    ) {
+      return
+    }
     this.stopWatching()
-    this.watchedPaths = paths.filter(Boolean)
+    this.watchedPaths = filtered
 
     if (this.watchedPaths.length === 0) return
 

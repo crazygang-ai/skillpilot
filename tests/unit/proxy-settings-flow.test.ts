@@ -101,7 +101,7 @@ describe('proxy settings flow', () => {
 
     expect(saved.proxy).toMatchObject(createProxyConfig())
     expect(saved.proxy).not.toHaveProperty('password')
-    expect(getProxySettings()).toEqual(createProxyConfig())
+    expect(await getProxySettings()).toEqual(createProxyConfig())
     expect(setPassword).toHaveBeenCalledWith('proxy-password', 'super-secret')
     expect(deletePassword).not.toHaveBeenCalled()
     expect(invalidateCache).toHaveBeenCalledTimes(1)

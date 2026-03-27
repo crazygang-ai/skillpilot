@@ -103,6 +103,10 @@ async function loadSkillManagerHarness(options?: {
     writeFileSync: vi.fn(),
     renameSync: vi.fn(),
   }
+  const mockFsPromises = {
+    rm: vi.fn().mockResolvedValue(undefined),
+    access: vi.fn().mockResolvedValue(undefined),
+  }
   const removeSymlink = vi.fn()
   const removeEntry = vi.fn()
   const updateEntry = vi.fn()
@@ -118,6 +122,7 @@ async function loadSkillManagerHarness(options?: {
   }
 
   vi.doMock('fs', () => ({ default: mockFs }))
+  vi.doMock('fs/promises', () => ({ default: mockFsPromises }))
   vi.doMock('../../electron/services/agent-detector', () => ({
     detectAll: vi.fn().mockResolvedValue([]),
   }))
@@ -164,6 +169,7 @@ async function loadSkillManagerHarness(options?: {
   return {
     SkillManager: module.SkillManager,
     mockFs,
+    mockFsPromises,
     removeSymlink,
     removeEntry,
     updateEntry,
@@ -192,11 +198,11 @@ async function loadSkillManagerWithRealUpdateCheck(repoDir: string) {
     scanAll: vi.fn().mockResolvedValue([]),
   }))
   vi.doMock('../../electron/services/lock-file-manager', () => ({
-    read: vi.fn(() => ({ version: 3, skills: {} })),
+    read: vi.fn().mockResolvedValue({ version: 3, skills: {} }),
     updateEntry,
-    removeEntry: vi.fn(),
+    removeEntry: vi.fn().mockResolvedValue(undefined),
     invalidateCache: vi.fn(),
-    createIfNotExists: vi.fn(),
+    createIfNotExists: vi.fn().mockResolvedValue(undefined),
   }))
   vi.doMock('../../electron/services/symlink-manager', () => ({
     removeSymlink: vi.fn(),
@@ -214,6 +220,7 @@ async function loadSkillManagerWithRealUpdateCheck(repoDir: string) {
     migrateCommitHashKey: vi.fn(),
   }))
   vi.doUnmock('fs')
+  vi.doUnmock('fs/promises')
   vi.doUnmock('../../electron/services/update-checker')
   vi.doMock('../../electron/services/skill-md-parser', () => ({
     serialize: vi.fn(),
@@ -269,7 +276,7 @@ describe('skill-manager', () => {
   })
 
   it('keeps destructive delete separate by removing canonical storage, lock entries, and cache keys', async () => {
-    const { SkillManager, mockFs, removeSymlink, removeEntry, removeCommitHash } =
+    const { SkillManager, mockFsPromises, removeSymlink, removeEntry, removeCommitHash } =
       await loadSkillManagerHarness()
     const manager = new SkillManager()
     manager.skills = [
@@ -289,7 +296,7 @@ describe('skill-manager', () => {
     await manager.deleteSkill('opaque-skill-id')
 
     expect(removeSymlink).toHaveBeenCalledWith('shared-skill', AgentType.CLAUDE)
-    expect(mockFs.rmSync).toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', {
+    expect(mockFsPromises.rm).toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', {
       recursive: true,
       force: true,
     })

@@ -1,8 +1,17 @@
 import { createHash } from 'crypto'
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import { Skill, SkillUpdateCheckResult } from '../../shared/types'
 import * as gitService from './git-service'
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fsPromises.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * Check if a skill has updates by comparing local tree hash vs remote.
@@ -34,7 +43,7 @@ export async function checkSkillUpdate(skill: Skill): Promise<SkillUpdateCheckRe
   const remoteCommitHash = await gitService.getCommitHash(repoDir)
 
   const lockHash = skill.lockEntry.skillFolderHash.trim()
-  const localTreeHash = lockHash || computeLocalGitTreeHash(skill.canonicalPath)
+  const localTreeHash = lockHash || await computeLocalGitTreeHash(skill.canonicalPath)
   if (!localTreeHash) {
     return {
       skillId: skill.id,
@@ -72,19 +81,19 @@ function getSkillFolderPath(repoDir: string, skillPath: string): string {
   return resolved
 }
 
-function computeLocalGitTreeHash(dirPath: string): string | undefined {
+async function computeLocalGitTreeHash(dirPath: string): Promise<string | undefined> {
   try {
-    if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+    if (!await pathExists(dirPath) || !(await fsPromises.stat(dirPath)).isDirectory()) {
       return undefined
     }
 
-    return buildTreeHash(dirPath, true)
+    return await buildTreeHash(dirPath, true)
   } catch {
     return undefined
   }
 }
 
-function buildTreeHash(dirPath: string, allowEmpty: boolean): string | undefined {
+async function buildTreeHash(dirPath: string, allowEmpty: boolean): Promise<string | undefined> {
   const entries: Array<{
     name: string
     mode: string
@@ -92,16 +101,16 @@ function buildTreeHash(dirPath: string, allowEmpty: boolean): string | undefined
     isDirectory: boolean
   }> = []
 
-  for (const entry of fs.readdirSync(dirPath)) {
+  for (const entry of await fsPromises.readdir(dirPath)) {
     if (entry === '.git') {
       continue
     }
 
     const fullPath = path.join(dirPath, entry)
-    const stat = fs.lstatSync(fullPath)
+    const stat = await fsPromises.lstat(fullPath)
 
     if (stat.isDirectory()) {
-      const childTreeHash = buildTreeHash(fullPath, false)
+      const childTreeHash = await buildTreeHash(fullPath, false)
       if (!childTreeHash) {
         continue
       }
@@ -119,7 +128,7 @@ function buildTreeHash(dirPath: string, allowEmpty: boolean): string | undefined
       entries.push({
         name: entry,
         mode: '120000',
-        hash: hashGitObject('blob', Buffer.from(fs.readlinkSync(fullPath))),
+        hash: hashGitObject('blob', Buffer.from(await fsPromises.readlink(fullPath))),
         isDirectory: false,
       })
       continue
@@ -133,7 +142,7 @@ function buildTreeHash(dirPath: string, allowEmpty: boolean): string | undefined
     entries.push({
       name: entry,
       mode,
-      hash: hashGitObject('blob', fs.readFileSync(fullPath)),
+      hash: hashGitObject('blob', await fsPromises.readFile(fullPath)),
       isDirectory: false,
     })
   }

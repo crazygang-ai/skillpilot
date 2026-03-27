@@ -9,8 +9,8 @@ import { applyProxySettingsToElectronSession } from '../services/proxy-settings'
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'test'
 
 let mainWindow: BrowserWindow | null = null
-const skillManager = new SkillManager()
-const appUpdater = new AppUpdater()
+let skillManager: SkillManager | null = null
+let appUpdater: AppUpdater | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -37,7 +37,14 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        shell.openExternal(url)
+      }
+    } catch {
+      // invalid URL, ignore
+    }
     return { action: 'deny' }
   })
 
@@ -68,6 +75,10 @@ if (!gotTheLock) {
 
 app.whenReady().then(async () => {
   log.info('SkillPilot starting...')
+
+  skillManager = new SkillManager()
+  appUpdater = new AppUpdater()
+
   await applyProxySettingsToElectronSession()
   setupIpcHandlers(skillManager, appUpdater)
   createWindow()
@@ -93,5 +104,5 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
-  skillManager.destroy()
+  skillManager?.destroy()
 })

@@ -87,6 +87,14 @@ const zh = {
     repoUrl: '仓库地址',
     importSuccess: '成功导入 {{count}} 个技能',
     importFailed: '导入失败: {{error}}',
+    github: {
+      title: '从 GitHub 导入',
+      repoLabel: 'GitHub 仓库',
+      placeholder: 'owner/repo 或完整 GitHub 地址',
+      hint: '将自动扫描仓库中的 SKILL.md 文件。',
+      importBtn: '导入',
+    },
+    targetAgents: '目标助手',
     local: {
       title: '从本地目录导入',
       directoryLabel: '技能目录',
@@ -148,6 +156,7 @@ const zh = {
     title: '设置',
     about: '关于',
     language: '语言',
+    displayLanguage: '显示语言',
     proxy: '代理',
     optional: '可选',
     appVersion: '版本',

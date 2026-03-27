@@ -595,6 +595,7 @@ describe('skill update contract', () => {
           checkUpdate: vi.fn(),
           updateSkill: vi.fn(),
           onStateChanged: vi.fn(() => stateUnsubscribe),
+          onRefreshFailed: vi.fn(() => vi.fn()),
         },
       },
     })

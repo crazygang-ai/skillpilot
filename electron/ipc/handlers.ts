@@ -126,7 +126,7 @@ export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpda
 
   // ---- Settings ----
   ipcMain.handle(IPC_CHANNELS.SETTINGS.GET_PROXY, async () => {
-    return getProxySettings()
+    return await getProxySettings()
   })
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS.SET_PROXY, async (_e, settings: unknown) => {
@@ -173,6 +173,14 @@ export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpda
         }
       }
     }, 100)
+  })
+
+  skillManager.on('refreshFailed', (message: string) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.SKILL.ON_REFRESH_FAILED, message)
+      }
+    }
   })
 
   appUpdater.on('stateChanged', (state) => {

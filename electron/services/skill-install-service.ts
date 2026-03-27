@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import {
   AgentType, InstallInput, InstallResult, LockEntry,
@@ -17,6 +17,15 @@ import {
   resolveLocalStableSkillId,
 } from './skill-identity'
 
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fsPromises.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function installFromRemote(input: InstallInput): Promise<InstallResult> {
   try {
     const available = await gitService.isGitAvailable()
@@ -25,7 +34,7 @@ export async function installFromRemote(input: InstallInput): Promise<InstallRes
     }
 
     const repoDir = await gitService.shallowClone(input.repoUrl)
-    let skillDirs = gitService.scanSkillsInRepo(repoDir)
+    let skillDirs = await gitService.scanSkillsInRepo(repoDir)
 
     if (skillDirs.length === 0) {
       return { success: false, error: 'No skills found in repository' }
@@ -46,16 +55,16 @@ export async function installFromRemote(input: InstallInput): Promise<InstallRes
       const skillId = createGitHubSkillId(input.repoUrl, skillPath)
       const destDir = path.join(SHARED_SKILLS_DIR, skillId)
 
-      if (!fs.existsSync(SHARED_SKILLS_DIR)) {
-        fs.mkdirSync(SHARED_SKILLS_DIR, { recursive: true })
+      if (!await pathExists(SHARED_SKILLS_DIR)) {
+        await fsPromises.mkdir(SHARED_SKILLS_DIR, { recursive: true })
       }
-      if (fs.existsSync(destDir)) {
-        fs.rmSync(destDir, { recursive: true, force: true })
+      if (await pathExists(destDir)) {
+        await fsPromises.rm(destDir, { recursive: true, force: true })
       }
-      copyDirectoryWithoutSymlinks(skillDir, destDir)
+      await copyDirectoryWithoutSymlinks(skillDir, destDir)
 
       for (const agentType of input.agentTypes) {
-        symlinkManager.createSymlink(destDir, agentType)
+        await symlinkManager.createSymlink(destDir, agentType)
       }
 
       const ownerRepo = gitService.extractOwnerRepo(input.repoUrl)
@@ -73,10 +82,10 @@ export async function installFromRemote(input: InstallInput): Promise<InstallRes
         installedAt: now,
         updatedAt: now,
       }
-      lockFileManager.updateEntry(skillId, lockEntry)
+      await lockFileManager.updateEntry(skillId, lockEntry)
 
       if (commitHash) {
-        commitHashCache.setCommitHash(skillId, commitHash)
+        await commitHashCache.setCommitHash(skillId, commitHash)
       }
 
       installedIds.push(skillId)
@@ -94,20 +103,20 @@ export async function installFromLocal(localPath: string, agentTypes: AgentType[
     const {
       realPath,
       directoryName,
-    } = resolveLocalSkillImport(localPath)
-    const skillId = resolveLocalStableSkillId(realPath, lockFileManager.read().skills)
+    } = await resolveLocalSkillImport(localPath)
+    const skillId = resolveLocalStableSkillId(realPath, (await lockFileManager.read()).skills)
 
     const destDir = path.join(SHARED_SKILLS_DIR, skillId)
-    if (!fs.existsSync(SHARED_SKILLS_DIR)) {
-      fs.mkdirSync(SHARED_SKILLS_DIR, { recursive: true })
+    if (!await pathExists(SHARED_SKILLS_DIR)) {
+      await fsPromises.mkdir(SHARED_SKILLS_DIR, { recursive: true })
     }
-    if (fs.existsSync(destDir)) {
-      fs.rmSync(destDir, { recursive: true, force: true })
+    if (await pathExists(destDir)) {
+      await fsPromises.rm(destDir, { recursive: true, force: true })
     }
-    copyDirectoryWithoutSymlinks(realPath, destDir)
+    await copyDirectoryWithoutSymlinks(realPath, destDir)
 
     for (const agentType of agentTypes) {
-      symlinkManager.createSymlink(destDir, agentType)
+      await symlinkManager.createSymlink(destDir, agentType)
     }
 
     const now = new Date().toISOString()
@@ -121,7 +130,7 @@ export async function installFromLocal(localPath: string, agentTypes: AgentType[
       installedAt: now,
       updatedAt: now,
     }
-    lockFileManager.updateEntry(skillId, lockEntry)
+    await lockFileManager.updateEntry(skillId, lockEntry)
 
     return { success: true, skillCount: 1, installedSkillIds: [skillId] }
   } catch (err) {

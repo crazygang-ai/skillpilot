@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settingsStore'
 import i18next from 'i18next'
 
 export default function LanguageSettings() {
+  const { t } = useTranslation()
   const { language, setLanguage } = useSettingsStore()
 
   function handleChange(lang: string) {
@@ -17,7 +19,7 @@ export default function LanguageSettings() {
 
   return (
     <div>
-      <p className="text-sm text-text-secondary mb-3">Display Language</p>
+      <p className="text-sm text-text-secondary mb-3">{t('settings.displayLanguage')}</p>
       <div className="flex gap-2">
         {languages.map(({ code, label }) => (
           <button

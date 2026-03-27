@@ -1,8 +1,13 @@
-import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
+import log from 'electron-log'
 import { AgentType, SkillInstallation, InheritedSource } from '../../shared/types'
 import { AGENT_CONFIGS } from '../types/agent-config'
 import { SHARED_SKILLS_DIR } from '../utils/constants'
+
+async function pathExists(p: string): Promise<boolean> {
+  try { await fsPromises.access(p); return true } catch { return false }
+}
 
 function assertSafeName(name: string): void {
   if (!name || name.includes('..') || name.includes(path.sep) || name.includes('/')) {
@@ -18,22 +23,28 @@ function assertWithinDir(filePath: string, parentDir: string): void {
   }
 }
 
-function canInherit(canonicalPath: string, agentType: AgentType): boolean {
+async function canInherit(canonicalPath: string, agentType: AgentType): Promise<boolean> {
   const config = AGENT_CONFIGS.find(c => c.type === agentType)
   if (!config) return false
   const skillName = path.basename(canonicalPath)
   for (const readable of config.additionalReadableSkillsDirectories) {
     const inheritedPath = path.join(readable.path, skillName)
-    if (!fs.existsSync(inheritedPath)) continue
+    if (!(await pathExists(inheritedPath))) continue
     try {
-      if (fs.realpathSync(inheritedPath) === fs.realpathSync(canonicalPath)) return true
-    } catch { /* ignore */ }
+      const [resolvedInherited, resolvedCanonical] = await Promise.all([
+        fsPromises.realpath(inheritedPath),
+        fsPromises.realpath(canonicalPath),
+      ])
+      if (resolvedInherited === resolvedCanonical) return true
+    } catch (err) {
+      log.warn('Failed to resolve realpath for inheritance check:', inheritedPath, err)
+    }
   }
   return false
 }
 
-export function createSymlink(canonicalPath: string, agentType: AgentType): void {
-  if (canInherit(canonicalPath, agentType)) return
+export async function createSymlink(canonicalPath: string, agentType: AgentType): Promise<void> {
+  if (await canInherit(canonicalPath, agentType)) return
 
   const config = AGENT_CONFIGS.find(c => c.type === agentType)
   if (!config) throw new Error(`Unknown agent type: ${agentType}`)
@@ -45,25 +56,28 @@ export function createSymlink(canonicalPath: string, agentType: AgentType): void
   const linkPath = path.join(targetDir, skillName)
   assertWithinDir(linkPath, targetDir)
 
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true })
+  if (!(await pathExists(targetDir))) {
+    await fsPromises.mkdir(targetDir, { recursive: true })
   }
 
-  if (fs.existsSync(linkPath)) {
-    const stat = fs.lstatSync(linkPath)
+  if (await pathExists(linkPath)) {
+    const stat = await fsPromises.lstat(linkPath)
     if (stat.isSymbolicLink()) {
-      const existingTarget = fs.readlinkSync(linkPath)
+      const existingTarget = await fsPromises.readlink(linkPath)
       if (existingTarget === canonicalPath) return
-      fs.unlinkSync(linkPath)
+      await fsPromises.unlink(linkPath)
     } else {
-      return
+      throw new Error(
+        `Cannot create symlink at ${linkPath}: a non-symlink entry already exists. ` +
+        `Remove it manually or use a different skill name.`
+      )
     }
   }
 
-  fs.symlinkSync(canonicalPath, linkPath, 'dir')
+  await fsPromises.symlink(canonicalPath, linkPath, 'dir')
 }
 
-export function removeSymlink(skillName: string, agentType: AgentType): void {
+export async function removeSymlink(skillName: string, agentType: AgentType): Promise<void> {
   const config = AGENT_CONFIGS.find(c => c.type === agentType)
   if (!config) throw new Error(`Unknown agent type: ${agentType}`)
 
@@ -71,26 +85,28 @@ export function removeSymlink(skillName: string, agentType: AgentType): void {
   const linkPath = path.join(config.skillsDirectoryPath, skillName)
   assertWithinDir(linkPath, config.skillsDirectoryPath)
 
-  if (!fs.existsSync(linkPath)) return
+  if (!(await pathExists(linkPath))) return
 
-  const stat = fs.lstatSync(linkPath)
+  const stat = await fsPromises.lstat(linkPath)
   if (stat.isSymbolicLink()) {
-    fs.unlinkSync(linkPath)
+    await fsPromises.unlink(linkPath)
   }
 }
 
-export function isSymlink(filePath: string): boolean {
+export async function isSymlink(filePath: string): Promise<boolean> {
   try {
-    return fs.lstatSync(filePath).isSymbolicLink()
-  } catch {
+    return (await fsPromises.lstat(filePath)).isSymbolicLink()
+  } catch (err) {
+    log.warn('Failed to check symlink status:', filePath, err)
     return false
   }
 }
 
-export function resolveCanonical(filePath: string): string {
+export async function resolveCanonical(filePath: string): Promise<string> {
   try {
-    return fs.realpathSync(filePath)
-  } catch {
+    return await fsPromises.realpath(filePath)
+  } catch (err) {
+    log.warn('Failed to resolve canonical path:', filePath, err)
     return filePath
   }
 }
@@ -99,35 +115,34 @@ export function resolveCanonical(filePath: string): string {
  * Find all installations of a skill across agents.
  * Two-pass: 1) direct installations in agent dirs, 2) inherited via additionalReadableSkillsDirectories
  */
-export function findInstallations(skillId: string, canonicalPath: string): SkillInstallation[] {
+export async function findInstallations(skillId: string, canonicalPath: string): Promise<SkillInstallation[]> {
   const installations: SkillInstallation[] = []
 
   // Pass 1: Direct installations
   for (const config of AGENT_CONFIGS) {
     const skillPath = path.join(config.skillsDirectoryPath, skillId)
-    if (!fs.existsSync(skillPath)) continue
+    if (!(await pathExists(skillPath))) continue
 
-    const resolved = resolveCanonical(skillPath)
+    const resolved = await resolveCanonical(skillPath)
     if (resolved !== canonicalPath) continue
 
     installations.push({
       agentType: config.type,
       path: skillPath,
-      isSymlink: isSymlink(skillPath),
+      isSymlink: await isSymlink(skillPath),
       isInherited: false,
     })
   }
 
   // Pass 2: Inherited installations (read-only, from other agents' directories)
   for (const config of AGENT_CONFIGS) {
-    // Skip if already has direct installation
     if (installations.some(i => i.agentType === config.type)) continue
 
     for (const readable of config.additionalReadableSkillsDirectories) {
       const skillPath = path.join(readable.path, skillId)
-      if (!fs.existsSync(skillPath)) continue
+      if (!(await pathExists(skillPath))) continue
 
-      const resolved = resolveCanonical(skillPath)
+      const resolved = await resolveCanonical(skillPath)
       if (resolved !== canonicalPath) continue
 
       const inheritedFrom: InheritedSource = readable.sourceKind === 'agent'
@@ -137,21 +152,11 @@ export function findInstallations(skillId: string, canonicalPath: string): Skill
       installations.push({
         agentType: config.type,
         path: skillPath,
-        isSymlink: isSymlink(skillPath),
+        isSymlink: await isSymlink(skillPath),
         isInherited: true,
         inheritedFrom,
       })
-      break // Only count first inherited source per agent
-    }
-  }
-
-  // Also check shared directory
-  const sharedPath = path.join(SHARED_SKILLS_DIR, skillId)
-  if (fs.existsSync(sharedPath)) {
-    const resolved = resolveCanonical(sharedPath)
-    if (resolved === canonicalPath) {
-      // Check if any agent doesn't already have this
-      // (shared skills are available to agents that scan shared dir)
+      break
     }
   }
 

@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useAgents } from '@/hooks/useAgents'
 
@@ -8,6 +9,7 @@ interface AgentSelectorProps {
 }
 
 export default function AgentSelector({ selected, onChange }: AgentSelectorProps) {
+  const { t } = useTranslation()
   const { data: agents } = useAgents()
 
   const installed = agents?.filter((a) => a.isInstalled) ?? []
@@ -22,7 +24,7 @@ export default function AgentSelector({ selected, onChange }: AgentSelectorProps
 
   if (installed.length === 0) {
     return (
-      <p className="text-sm text-text-muted py-2">No agents detected</p>
+      <p className="text-sm text-text-muted py-2">{t('install.noAgentsDetected')}</p>
     )
   }
 
