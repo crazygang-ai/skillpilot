@@ -34,7 +34,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run preload:build && tsc -p tsconfig.electron.json
+      - run: pnpm run preload:build && pnpm exec tsc -p tsconfig.electron.json
       - run: pnpm test
 
   build:

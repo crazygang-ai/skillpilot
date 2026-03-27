@@ -21,6 +21,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build preload and compile Electron TS
+        run: pnpm run preload:build && pnpm exec tsc -p tsconfig.electron.json
+
       - name: Run tests
         run: pnpm test
 
