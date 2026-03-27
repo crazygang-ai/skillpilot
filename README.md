@@ -120,13 +120,25 @@ pnpm test             # Run unit tests (Vitest)
 pnpm test:e2e         # Run E2E tests (Playwright)
 pnpm build:mac        # Build macOS app
 pnpm typecheck        # Type-check renderer + main process
+pnpm lint             # Run ESLint
+pnpm format           # Format code with Prettier
 ```
+
+### Releasing
+
+```bash
+pnpm release patch    # 0.1.0 → 0.1.1  (bug fix)
+pnpm release minor    # 0.1.0 → 0.2.0  (new feature)
+pnpm release major    # 0.1.0 → 1.0.0  (breaking change)
+```
+
+The script runs local typecheck + tests, bumps `package.json` version, commits, tags, and pushes. GitHub Actions then builds the `.dmg`/`.zip` and creates a draft release automatically.
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| macOS blocks the app on first launch | Run `xattr -cr /Applications/SkillPilot.app` or right-click → Open → click "Open" |
+| macOS blocks the app on first launch | Run `xattr -cr /Applications/SkillPilot.app` |
 | App update says no new version is available | GitHub Releases drafts are ignored until they are manually published. |
 | App updates fail behind an authenticated proxy | SkillPilot syncs proxy rules into Electron, but authenticated app updates may still rely on system proxy auth or require manual download from Releases. |
 | Agent not detected | Ensure the agent CLI is installed and available in `$PATH` |
