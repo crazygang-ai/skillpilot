@@ -26,22 +26,9 @@ import { useAgents } from '@/hooks/useAgents'
 import { useAppStore } from '@/stores/appStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { getAgentStatePresentation } from './agent-state-presentation'
+import { AGENT_TEXT_COLORS } from '@/lib/agent-constants'
 import type { Skill, Agent, AgentType, SkillAgentStatus } from '@/types'
 import api from '@/services/ipcClient'
-
-const AGENT_COLORS: Record<string, string> = {
-  claude: 'text-agent-claude',
-  codex: 'text-agent-codex',
-  gemini: 'text-agent-gemini',
-  copilot: 'text-agent-copilot',
-  opencode: 'text-agent-opencode',
-  antigravity: 'text-agent-antigravity',
-  cursor: 'text-agent-cursor',
-  kiro: 'text-agent-kiro',
-  codebuddy: 'text-agent-codebuddy',
-  openclaw: 'text-agent-openclaw',
-  trae: 'text-agent-trae',
-}
 
 function getAgentStatusForSkill(
   skill: Skill,
@@ -323,7 +310,7 @@ export default function SkillDetail() {
             return (
               <div key={agent.type} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-bg-hover transition-colors">
                 <div className="flex items-center gap-2.5">
-                  <span className={cn('text-sm font-medium', AGENT_COLORS[agent.type] ?? 'text-text-primary')}>
+                  <span className={cn('text-sm font-medium', AGENT_TEXT_COLORS[agent.type] ?? 'text-text-primary')}>
                     {agent.displayName}
                   </span>
                   <span className={cn('inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium', presentation.color, presentation.bgColor)}>

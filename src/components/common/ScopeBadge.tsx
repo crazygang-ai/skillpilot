@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { getAgentDisplayName } from '@/lib/agent-constants'
 import type { SkillScope } from '@/types'
 
 interface ScopeBadgeProps {
@@ -12,7 +13,7 @@ export default function ScopeBadge({ scope, variant = 'colored' }: ScopeBadgePro
 
   const config = {
     sharedGlobal: { label: t('scope.global'), classes: 'bg-success/10 text-success' },
-    agentLocal: { label: scope.kind === 'agentLocal' ? scope.agentType : '', classes: 'bg-blue-600/10 text-blue-600' },
+    agentLocal: { label: scope.kind === 'agentLocal' ? getAgentDisplayName(scope.agentType) : '', classes: 'bg-blue-600/10 text-blue-600' },
     project: { label: t('scope.project'), classes: 'bg-purple-600/10 text-purple-600' },
   }
 

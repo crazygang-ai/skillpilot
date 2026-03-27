@@ -6,21 +6,8 @@ import { useSkills } from '@/hooks/useSkills'
 import { useAppStore } from '@/stores/appStore'
 import { type OwnershipFilter, matchesOwnershipFilter } from './skill-ownership'
 import ScopeBadge from '@/components/common/ScopeBadge'
+import { AGENT_BG_COLORS } from '@/lib/agent-constants'
 import type { AgentType } from '@/types'
-
-const AGENT_COLORS: Record<string, string> = {
-  claude: 'bg-agent-claude',
-  codex: 'bg-agent-codex',
-  gemini: 'bg-agent-gemini',
-  copilot: 'bg-agent-copilot',
-  opencode: 'bg-agent-opencode',
-  antigravity: 'bg-agent-antigravity',
-  cursor: 'bg-agent-cursor',
-  kiro: 'bg-agent-kiro',
-  codebuddy: 'bg-agent-codebuddy',
-  openclaw: 'bg-agent-openclaw',
-  trae: 'bg-agent-trae',
-}
 
 export default function SkillList() {
   const { t } = useTranslation()
@@ -119,7 +106,7 @@ export default function SkillList() {
                 {skill.installations.map((inst) => (
                   <span
                     key={inst.agentType}
-                    className={cn('h-2 w-2 rounded-full', AGENT_COLORS[inst.agentType] ?? 'bg-text-muted')}
+                    className={cn('h-2 w-2 rounded-full', AGENT_BG_COLORS[inst.agentType] ?? 'bg-text-muted')}
                     title={inst.agentType}
                   />
                 ))}
