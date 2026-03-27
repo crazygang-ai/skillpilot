@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Plus, GitBranch, Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import GitHubImportModal from './GitHubImportModal'
 import UploadSkillModal from './UploadSkillModal'
 
 export default function AddSkillButton() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [showGitModal, setShowGitModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -32,7 +34,7 @@ export default function AddSkillButton() {
         )}
       >
         <Plus className="w-4 h-4" />
-        Add Skill
+        {t('install.addSkill')}
       </button>
 
       {isOpen && (
@@ -42,14 +44,14 @@ export default function AddSkillButton() {
             onClick={() => { setIsOpen(false); setShowGitModal(true) }}
           >
             <GitBranch className="w-4 h-4 text-text-secondary" />
-            From Git
+            {t('install.fromGit')}
           </button>
           <button
             className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-text-primary hover:bg-bg-hover"
             onClick={() => { setIsOpen(false); setShowUploadModal(true) }}
           >
             <Upload className="w-4 h-4 text-text-secondary" />
-            From Local File
+            {t('install.fromLocal')}
           </button>
         </div>
       )}

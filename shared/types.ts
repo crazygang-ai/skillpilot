@@ -54,6 +54,7 @@ export interface SkillMetadata {
 }
 
 export interface LockEntry {
+  stableId?: string       // opaque stable skill ID
   source: string          // e.g., "crossoverJie/skills"
   sourceType: string      // "github" | "local"
   sourceUrl: string       // full git URL or local path
@@ -70,10 +71,42 @@ export interface LockFile {
   lastSelectedAgents?: string[]
 }
 
-export type SkillUpdateStatus = 'notChecked' | 'checking' | 'hasUpdate' | 'upToDate' | 'error'
+export type SkillUpdateStatus =
+  | 'notChecked'
+  | 'checking'
+  | 'hasUpdate'
+  | 'upToDate'
+  | 'unknownHash'
+  | 'notSupported'
+  | 'error'
+
+export type SkillUpdateCheckResultStatus =
+  | 'hasUpdate'
+  | 'upToDate'
+  | 'unknownHash'
+  | 'notSupported'
+
+export interface SkillUpdateCheckResult {
+  skillId: string
+  status: SkillUpdateCheckResultStatus
+  hasUpdate: boolean
+  localTreeHash?: string
+  remoteTreeHash?: string
+  remoteCommitHash?: string
+  message?: string
+}
+
+export interface SkillUpdateApplyResult {
+  skillId: string
+  status: 'updated'
+  remoteTreeHash?: string
+  remoteCommitHash?: string
+}
 
 export interface Skill {
-  id: string                           // directory name (unique)
+  id: string                           // opaque stable ID
+  storageName: string                  // on-disk directory/symlink name
+  directoryName: string                // original folder name for display only
   canonicalPath: string                // real path after symlink resolution
   metadata: SkillMetadata
   markdownBody: string                 // content after YAML frontmatter
@@ -122,6 +155,11 @@ export interface InstallResult {
   installedSkillIds?: string[]
 }
 
+export interface RemoveLocalInstallationInput {
+  skillId: string
+  agentType: AgentType
+}
+
 // ---- Proxy ----
 
 export type ProxyType = 'https' | 'socks5'
@@ -133,6 +171,11 @@ export interface ProxySettings {
   port: number
   username?: string
   bypassList: string[]
+}
+
+export interface SetProxySettingsInput {
+  proxy: ProxySettings
+  password?: string
 }
 
 // ---- App Update ----

@@ -24,7 +24,7 @@
 - **Multi-Agent Support** — Manage skills for 11 AI code agents from a single unified interface
 - **Registry Browser** — Browse the [skills.sh](https://skills.sh) leaderboard with search and category filters
 - **Unified Dashboard** — View all skills and agents at a glance with per-agent filtering
-- **Flexible Imports** — Install from GitHub or import from a local folder, then auto-create symlinks and update the lock file
+- **Flexible Imports** — Install from GitHub or import from a local folder containing `SKILL.md`, then auto-create symlinks and update the lock file
 - **Per-Skill Update Detection** — Detect remote changes via Git tree hash comparison and pull updates with one click
 - **Batch Update Check** — Check all GitHub-sourced skills for updates in one action
 - **SKILL.md Editor** — Split-pane form + markdown editor with live preview
@@ -128,8 +128,9 @@ pnpm typecheck        # Type-check renderer + main process
 | macOS blocks the app on first launch | Run `xattr -cr /Applications/SkillPilot.app` or right-click → Open → click "Open" |
 | Agent not detected | Ensure the agent CLI is installed and available in `$PATH` |
 | Skills not syncing after CLI changes | Click the refresh button in the sidebar, or check that the skills directory exists |
-| GitHub imports fail behind a proxy | Configure proxy in Settings → Proxy (supports HTTPS and SOCKS5) |
-| Update check shows no updates | The skill must have been installed from a GitHub URL to support update detection |
+| GitHub imports fail behind a proxy | Configure proxy in Settings → Proxy. Proxy passwords are stored in the macOS Keychain. |
+| Local import fails | Local import only supports directories containing `SKILL.md`, and symlinks inside the imported directory tree are rejected. |
+| Update check cannot determine status | Update checks only support GitHub-backed skills. Older installs with no saved baseline may report that the local hash is unknown until they are re-baselined by reinstalling or updating. |
 
 ## Contributing
 

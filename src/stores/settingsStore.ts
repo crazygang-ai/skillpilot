@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import type { ProxySettings } from '@/types'
+import type { ProxySettings, SetProxySettingsInput } from '@/types'
 
 interface SettingsState {
   proxy: ProxySettings
   language: string
   loadProxy: () => Promise<void>
-  saveProxy: (proxy: ProxySettings) => Promise<void>
+  saveProxy: (input: SetProxySettingsInput) => Promise<void>
   setLanguage: (lang: string) => void
 }
 
@@ -28,9 +28,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     }
   },
 
-  saveProxy: async (proxy) => {
-    await window.electronAPI.settings.setProxy(proxy)
-    set({ proxy })
+  saveProxy: async (input) => {
+    await window.electronAPI.settings.setProxy(input)
+    set({ proxy: input.proxy })
   },
 
   setLanguage: (lang) => {

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Loader2,
@@ -19,31 +20,14 @@ import {
 import { useInstallSkill } from '@/hooks/useSkills'
 import { useAgents } from '@/hooks/useAgents'
 import { useNotificationStore } from '@/stores/notificationStore'
-import MarkdownPreview from '@/components/editor/MarkdownPreview'
+import SafeRemoteContent from '@/components/registry/SafeRemoteContent'
 import type { RegistrySkill, LeaderboardCategory, AgentType } from '@/types'
-
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/
-const HTML_PREFIX = '<!-- HTML -->'
-
-function isHtmlContent(content: string): boolean {
-  return content.startsWith(HTML_PREFIX)
-}
-
-function stripFrontmatter(content: string): string {
-  return content.replace(FRONTMATTER_RE, '').trim()
-}
 
 function formatInstalls(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
 }
-
-const CATEGORY_TABS: { label: string; value: LeaderboardCategory; icon: React.ReactNode }[] = [
-  { label: 'All Time', value: 'allTime', icon: <Trophy className="h-3.5 w-3.5" /> },
-  { label: 'Trending (24h)', value: 'trending', icon: <TrendingUp className="h-3.5 w-3.5" /> },
-  { label: 'Hot', value: 'hot', icon: <Flame className="h-3.5 w-3.5" /> },
-]
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -52,6 +36,7 @@ function formatCount(n: number): string {
 }
 
 export default function RegistryBrowser() {
+  const { t } = useTranslation()
   const [searchInput, setSearchInput] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [category, setCategory] = useState<LeaderboardCategory>('allTime')
@@ -61,6 +46,11 @@ export default function RegistryBrowser() {
   const { data: agents } = useAgents()
   const installSkill = useInstallSkill()
   const addNotification = useNotificationStore((s) => s.addNotification)
+  const categoryTabs: { label: string; value: LeaderboardCategory; icon: React.ReactNode }[] = [
+    { label: t('registry.allTime'), value: 'allTime', icon: <Trophy className="h-3.5 w-3.5" /> },
+    { label: t('registry.trending24h'), value: 'trending', icon: <TrendingUp className="h-3.5 w-3.5" /> },
+    { label: t('registry.hot'), value: 'hot', icon: <Flame className="h-3.5 w-3.5" /> },
+  ]
 
   // 300ms debounce
   useEffect(() => {
@@ -95,8 +85,8 @@ export default function RegistryBrowser() {
   const handleCopyCommand = useCallback(() => {
     if (!installCommand) return
     navigator.clipboard.writeText(installCommand)
-    addNotification('success', 'Install command copied')
-  }, [installCommand, addNotification])
+    addNotification('success', t('registry.commandCopied'))
+  }, [installCommand, addNotification, t])
 
   const handleInstall = useCallback(() => {
     if (!selected || selectedAgents.length === 0) return
@@ -110,15 +100,21 @@ export default function RegistryBrowser() {
       {
         onSuccess: (result) => {
           if (result.success) {
-            addNotification('success', `Installed "${selected.name}" (${result.skillCount ?? 0} skill${(result.skillCount ?? 0) !== 1 ? 's' : ''})`)
+            addNotification(
+              'success',
+              t('registry.installSuccess', {
+                name: selected.name,
+                count: result.skillCount ?? 0,
+              }),
+            )
           } else {
-            addNotification('error', result.error ?? 'Installation failed')
+            addNotification('error', result.error ?? t('registry.installFailed'))
           }
         },
         onError: (err) => addNotification('error', err.message),
       },
     )
-  }, [selected, selectedAgents, installSkill, addNotification])
+  }, [selected, selectedAgents, installSkill, addNotification, t])
 
   const toggleAgent = useCallback((agentType: AgentType) => {
     setSelectedAgents((prev) =>
@@ -136,7 +132,7 @@ export default function RegistryBrowser() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
-              placeholder="Search registry..."
+              placeholder={t('registry.searchPlaceholder')}
               className="w-full rounded-lg bg-bg-tertiary border border-border pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -147,7 +143,7 @@ export default function RegistryBrowser() {
         {/* Category Tabs */}
         {!isSearching && (
           <div className="flex gap-1 px-3 pb-2">
-            {CATEGORY_TABS.map(({ label, value, icon }) => (
+            {categoryTabs.map(({ label, value, icon }) => (
               <button
                 key={value}
                 onClick={() => setCategory(value)}
@@ -176,7 +172,7 @@ export default function RegistryBrowser() {
             </div>
           ) : skills.length === 0 ? (
             <p className="py-12 text-center text-sm text-text-muted">
-              {isSearching ? 'No results found' : 'No skills available'}
+              {isSearching ? t('registry.noSkillsFound') : t('registry.noSkillsAvailable')}
             </p>
           ) : (
             skills.map((skill) => (
@@ -208,7 +204,7 @@ export default function RegistryBrowser() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {!selected ? (
           <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-text-muted">Select a skill to view details</p>
+            <p className="text-sm text-text-muted">{t('registry.selectSkill')}</p>
           </div>
         ) : (
           <div className="flex flex-1 flex-col overflow-hidden">
@@ -218,7 +214,7 @@ export default function RegistryBrowser() {
               <div className="mt-2 flex items-center gap-4 text-sm text-text-secondary">
                 <span className="flex items-center gap-1">
                   <Download className="h-4 w-4" />
-                  {formatInstalls(selected.installs)} installs
+                  {formatInstalls(selected.installs)} {t('registry.installs')}
                 </span>
                 <a
                   href={`https://skills.sh/${selected.id}`}
@@ -244,7 +240,7 @@ export default function RegistryBrowser() {
             {/* Install Command */}
             <div className="border-b border-border px-6 py-4">
               <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-secondary">
-                Install via CLI
+                {t('registry.installViaCli')}
               </h3>
               <div className="flex items-center gap-2">
                 <code className="flex-1 rounded-lg bg-bg-tertiary border border-border px-3 py-2 text-sm font-mono text-text-primary">
@@ -253,7 +249,7 @@ export default function RegistryBrowser() {
                 <button
                   onClick={handleCopyCommand}
                   className="rounded-lg p-2 text-text-secondary hover:bg-bg-hover transition-colors"
-                  title="Copy"
+                  title={t('common.copy')}
                 >
                   <Copy className="h-4 w-4" />
                 </button>
@@ -266,26 +262,15 @@ export default function RegistryBrowser() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
                 </div>
-              ) : skillContent ? (
-                isHtmlContent(skillContent) ? (
-                  <div
-                    className="markdown-body p-6"
-                    dangerouslySetInnerHTML={{ __html: skillContent.slice(HTML_PREFIX.length) }}
-                  />
-                ) : (
-                  <MarkdownPreview content={stripFrontmatter(skillContent)} />
-                )
               ) : (
-                <p className="px-6 py-12 text-center text-sm text-text-muted">
-                  No documentation available
-                </p>
+                <SafeRemoteContent content={skillContent} />
               )}
             </div>
 
             {/* Agent Selector + Install */}
             <div className="flex-shrink-0 border-t border-border px-6 py-4">
               <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-text-secondary">
-                Install to Agents
+                {t('registry.installToAgents')}
               </h3>
               <div className="flex flex-wrap gap-2 mb-3">
                 {agents
@@ -313,7 +298,7 @@ export default function RegistryBrowser() {
                 {installSkill.isPending ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : (
-                  'Install'
+                  t('common.install')
                 )}
               </button>
             </div>

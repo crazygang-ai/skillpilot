@@ -1,138 +1,379 @@
-import { describe, it, expect } from 'vitest'
+import { execFileSync } from 'child_process'
 import { EventEmitter } from 'events'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Skill, SkillUpdateCheckResult } from '../../shared/types'
+import { AgentType } from '../../shared/types'
 
-// SkillManager has heavy dependencies (electron, git, filesystem).
-// We test the pure logic patterns it uses: state management, transient field
-// restoration, and event emission.
+const tempDirs: string[] = []
 
-describe('SkillManager (pure logic patterns)', () => {
-  describe('EventEmitter pattern', () => {
-    it('emits stateChanged events', () => {
-      const emitter = new EventEmitter()
-      let callCount = 0
-      emitter.on('stateChanged', () => { callCount++ })
+function createSkill(overrides: Partial<Skill> = {}): Skill {
+  return {
+    id: 'opaque-skill-id',
+    storageName: 'shared-skill',
+    directoryName: 'shared-skill',
+    canonicalPath: '/Users/test/.agents/skills/shared-skill',
+    metadata: {
+      name: 'Shared Skill',
+      description: 'Test skill',
+    },
+    markdownBody: '',
+    scope: { kind: 'sharedGlobal' },
+    installations: [],
+    hasUpdate: false,
+    updateStatus: 'notChecked',
+    lockEntry: {
+      source: 'owner/repo',
+      sourceType: 'github',
+      sourceUrl: 'https://github.com/owner/repo.git',
+      skillPath: 'skills/shared-skill/SKILL.md',
+      skillFolderHash: 'local-tree',
+      installedAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+    ...overrides,
+  }
+}
 
-      emitter.emit('stateChanged')
-      emitter.emit('stateChanged')
+function createTempDir(prefix: string): string {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+  tempDirs.push(tempDir)
+  return tempDir
+}
 
-      expect(callCount).toBe(2)
-    })
+function writeFiles(baseDir: string, files: Record<string, string>): void {
+  for (const [relativePath, contents] of Object.entries(files)) {
+    const filePath = path.join(baseDir, relativePath)
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, contents)
+  }
+}
 
-    it('removes all listeners on destroy', () => {
-      const emitter = new EventEmitter()
-      let called = false
-      emitter.on('stateChanged', () => { called = true })
+function createCommittedSkillRepo(skillFolder: string, files: Record<string, string>) {
+  const tempDir = createTempDir('skillpilot-skill-manager-repo-')
+  const repoDir = path.join(tempDir, 'repo')
+  const skillDir = path.join(repoDir, skillFolder)
 
-      emitter.removeAllListeners()
-      emitter.emit('stateChanged')
+  fs.mkdirSync(skillDir, { recursive: true })
+  writeFiles(skillDir, files)
 
-      expect(called).toBe(false)
-    })
+  execFileSync('git', ['init'], { cwd: repoDir, stdio: 'ignore' })
+  execFileSync('git', ['add', '.'], { cwd: repoDir, stdio: 'ignore' })
+  execFileSync('git', ['commit', '-m', 'init'], {
+    cwd: repoDir,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'SkillPilot Tests',
+      GIT_AUTHOR_EMAIL: 'tests@example.com',
+      GIT_COMMITTER_NAME: 'SkillPilot Tests',
+      GIT_COMMITTER_EMAIL: 'tests@example.com',
+    },
   })
 
-  describe('transient field restoration', () => {
-    it('restores updateStatus from cache', () => {
-      const updateStatuses = new Map<string, string>([
-        ['skill-a', 'hasUpdate'],
-        ['skill-b', 'upToDate'],
-      ])
+  return {
+    repoDir,
+    remoteTreeHash: execFileSync('git', ['rev-parse', `HEAD:${skillFolder}`], {
+      cwd: repoDir,
+      encoding: 'utf8',
+    }).trim(),
+  }
+}
 
-      const skills = [
-        { id: 'skill-a', updateStatus: 'notChecked' as string },
-        { id: 'skill-b', updateStatus: 'notChecked' as string },
-        { id: 'skill-c', updateStatus: 'notChecked' as string },
-      ]
+async function loadSkillManagerHarness(options?: {
+  updateCheckResult?: SkillUpdateCheckResult
+}) {
+  const updateCheckResult = options?.updateCheckResult ?? {
+    skillId: 'opaque-skill-id',
+    status: 'hasUpdate',
+    hasUpdate: true,
+    remoteTreeHash: 'remote-tree',
+    remoteCommitHash: 'remote-commit',
+  }
 
-      const restored = skills.map(skill => ({
-        ...skill,
-        updateStatus: updateStatuses.get(skill.id) ?? 'notChecked',
-        hasUpdate: updateStatuses.get(skill.id) === 'hasUpdate',
-      }))
+  const mockFs = {
+    existsSync: vi.fn(() => true),
+    rmSync: vi.fn(),
+    mkdirSync: vi.fn(),
+    readdirSync: vi.fn(() => []),
+    statSync: vi.fn(),
+    copyFileSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    renameSync: vi.fn(),
+  }
+  const removeSymlink = vi.fn()
+  const removeEntry = vi.fn()
+  const updateEntry = vi.fn()
+  const removeCommitHash = vi.fn()
+  const getCommitHash = vi.fn()
+  const updateChecker = {
+    checkSkillUpdate: vi.fn().mockResolvedValue(updateCheckResult),
+  }
 
-      expect(restored[0].updateStatus).toBe('hasUpdate')
-      expect(restored[0].hasUpdate).toBe(true)
-      expect(restored[1].updateStatus).toBe('upToDate')
-      expect(restored[1].hasUpdate).toBe(false)
-      expect(restored[2].updateStatus).toBe('notChecked')
-      expect(restored[2].hasUpdate).toBe(false)
-    })
+  class MockWatcher extends EventEmitter {
+    startWatching() {}
+    stopWatching() {}
+  }
 
-    it('restores remote hashes from cache', () => {
-      const treeHashes = new Map([['skill-a', 'abc123']])
-      const commitHashes = new Map([['skill-a', 'def456']])
+  vi.doMock('fs', () => ({ default: mockFs }))
+  vi.doMock('../../electron/services/agent-detector', () => ({
+    detectAll: vi.fn().mockResolvedValue([]),
+  }))
+  vi.doMock('../../electron/services/skill-scanner', () => ({
+    scanAll: vi.fn().mockResolvedValue([]),
+  }))
+  vi.doMock('../../electron/services/lock-file-manager', () => ({
+    read: vi.fn(() => ({ version: 3, skills: {} })),
+    removeEntry,
+    updateEntry,
+    invalidateCache: vi.fn(),
+    createIfNotExists: vi.fn(),
+  }))
+  vi.doMock('../../electron/services/symlink-manager', () => ({
+    removeSymlink,
+    createSymlink: vi.fn(),
+    resolveCanonical: vi.fn((value: string) => value),
+  }))
+  vi.doMock('../../electron/services/git-service', () => ({
+    isGitAvailable: vi.fn(),
+    shallowClone: vi.fn(),
+    scanSkillsInRepo: vi.fn(),
+    extractOwnerRepo: vi.fn(),
+    normalizeRepoURL: vi.fn(),
+    getTreeHash: vi.fn(),
+    getCommitHash: vi.fn(),
+  }))
+  vi.doMock('../../electron/services/commit-hash-cache', () => ({
+    removeCommitHash,
+    setCommitHash: vi.fn(),
+    getCommitHash,
+    migrateCommitHashKey: vi.fn(),
+  }))
+  vi.doMock('../../electron/services/skill-md-parser', () => ({
+    serialize: vi.fn(),
+  }))
+  vi.doMock('../../electron/services/update-checker', () => updateChecker)
+  vi.doMock('../../electron/services/file-system-watcher', () => ({
+    FileSystemWatcher: MockWatcher,
+  }))
 
-      const skill = { id: 'skill-a' }
-      const remoteTreeHash = treeHashes.get(skill.id)
-      const remoteCommitHash = commitHashes.get(skill.id)
+  const module = await import('../../electron/services/skill-manager')
 
-      expect(remoteTreeHash).toBe('abc123')
-      expect(remoteCommitHash).toBe('def456')
-    })
+  return {
+    SkillManager: module.SkillManager,
+    mockFs,
+    removeSymlink,
+    removeEntry,
+    updateEntry,
+    removeCommitHash,
+  }
+}
+
+async function loadSkillManagerWithRealUpdateCheck(repoDir: string) {
+  const updateEntry = vi.fn()
+  const actualGitService = await vi.importActual<typeof import('../../electron/services/git-service')>(
+    '../../electron/services/git-service',
+  )
+
+  class MockWatcher extends EventEmitter {
+    startWatching() {}
+    stopWatching() {}
+  }
+
+  vi.doMock('electron', () => ({
+    app: { getVersion: vi.fn(() => '0.1.1') },
+  }))
+  vi.doMock('../../electron/services/agent-detector', () => ({
+    detectAll: vi.fn().mockResolvedValue([]),
+  }))
+  vi.doMock('../../electron/services/skill-scanner', () => ({
+    scanAll: vi.fn().mockResolvedValue([]),
+  }))
+  vi.doMock('../../electron/services/lock-file-manager', () => ({
+    read: vi.fn(() => ({ version: 3, skills: {} })),
+    updateEntry,
+    removeEntry: vi.fn(),
+    invalidateCache: vi.fn(),
+    createIfNotExists: vi.fn(),
+  }))
+  vi.doMock('../../electron/services/symlink-manager', () => ({
+    removeSymlink: vi.fn(),
+    createSymlink: vi.fn(),
+    resolveCanonical: vi.fn((value: string) => value),
+  }))
+  vi.doMock('../../electron/services/git-service', () => ({
+    ...actualGitService,
+    shallowClone: vi.fn().mockResolvedValue(repoDir),
+  }))
+  vi.doMock('../../electron/services/commit-hash-cache', () => ({
+    removeCommitHash: vi.fn(),
+    setCommitHash: vi.fn(),
+    getCommitHash: vi.fn(),
+    migrateCommitHashKey: vi.fn(),
+  }))
+  vi.doUnmock('fs')
+  vi.doUnmock('../../electron/services/update-checker')
+  vi.doMock('../../electron/services/skill-md-parser', () => ({
+    serialize: vi.fn(),
+  }))
+  vi.doMock('../../electron/services/file-system-watcher', () => ({
+    FileSystemWatcher: MockWatcher,
+  }))
+
+  const module = await import('../../electron/services/skill-manager')
+
+  return {
+    SkillManager: module.SkillManager,
+    updateEntry,
+  }
+}
+
+describe('skill-manager', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
   })
 
-  describe('update status state machine', () => {
-    it('follows correct transitions', () => {
-      const statuses = new Map<string, string>()
-      const skillId = 'test-skill'
-
-      // Start: not tracked
-      expect(statuses.get(skillId)).toBeUndefined()
-
-      // Begin checking
-      statuses.set(skillId, 'checking')
-      expect(statuses.get(skillId)).toBe('checking')
-
-      // Update found
-      statuses.set(skillId, 'hasUpdate')
-      expect(statuses.get(skillId)).toBe('hasUpdate')
-
-      // After applying update
-      statuses.set(skillId, 'upToDate')
-      expect(statuses.get(skillId)).toBe('upToDate')
-    })
-
-    it('handles error state', () => {
-      const statuses = new Map<string, string>()
-      statuses.set('skill-x', 'checking')
-      statuses.set('skill-x', 'error')
-      expect(statuses.get('skill-x')).toBe('error')
-    })
-
-    it('cleans up on delete', () => {
-      const statuses = new Map<string, string>()
-      const treeHashes = new Map<string, string>()
-      const commitHashes = new Map<string, string>()
-
-      statuses.set('skill-a', 'hasUpdate')
-      treeHashes.set('skill-a', 'hash1')
-      commitHashes.set('skill-a', 'hash2')
-
-      // Simulate delete cleanup
-      statuses.delete('skill-a')
-      treeHashes.delete('skill-a')
-      commitHashes.delete('skill-a')
-
-      expect(statuses.has('skill-a')).toBe(false)
-      expect(treeHashes.has('skill-a')).toBe(false)
-      expect(commitHashes.has('skill-a')).toBe(false)
-    })
+  afterEach(() => {
+    for (const tempDir of tempDirs.splice(0)) {
+      fs.rmSync(tempDir, { recursive: true, force: true })
+    }
   })
 
-  describe('checkAllUpdates filter', () => {
-    it('only checks github-sourced skills with lockEntry', () => {
-      const skills = [
-        { id: 'a', lockEntry: { sourceType: 'github' } },
-        { id: 'b', lockEntry: { sourceType: 'local' } },
-        { id: 'c', lockEntry: undefined },
-        { id: 'd', lockEntry: { sourceType: 'github' } },
-      ]
+  it('removes only the requested local installation without deleting canonical storage or metadata', async () => {
+    const { SkillManager, mockFs, removeSymlink, removeEntry, removeCommitHash } =
+      await loadSkillManagerHarness()
+    const manager = new SkillManager()
+    manager.skills = [
+      createSkill({
+        installations: [
+          {
+            agentType: AgentType.CLAUDE,
+            path: '/Users/test/.claude/skills/shared-skill',
+            isSymlink: true,
+            isInherited: false,
+          },
+        ],
+      }),
+    ]
+    vi.spyOn(manager, 'refresh').mockResolvedValue(undefined)
 
-      const updatable = skills.filter(
-        s => s.lockEntry && s.lockEntry.sourceType === 'github',
-      )
+    await manager.removeLocalInstallation('opaque-skill-id', AgentType.CLAUDE)
 
-      expect(updatable).toHaveLength(2)
-      expect(updatable.map(s => s.id)).toEqual(['a', 'd'])
+    expect(removeSymlink).toHaveBeenCalledWith('shared-skill', AgentType.CLAUDE)
+    expect(mockFs.rmSync).not.toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', expect.anything())
+    expect(removeEntry).not.toHaveBeenCalled()
+    expect(removeCommitHash).not.toHaveBeenCalled()
+  })
+
+  it('keeps destructive delete separate by removing canonical storage, lock entries, and cache keys', async () => {
+    const { SkillManager, mockFs, removeSymlink, removeEntry, removeCommitHash } =
+      await loadSkillManagerHarness()
+    const manager = new SkillManager()
+    manager.skills = [
+      createSkill({
+        installations: [
+          {
+            agentType: AgentType.CLAUDE,
+            path: '/Users/test/.claude/skills/shared-skill',
+            isSymlink: true,
+            isInherited: false,
+          },
+        ],
+      }),
+    ]
+    vi.spyOn(manager, 'refresh').mockResolvedValue(undefined)
+
+    await manager.deleteSkill('opaque-skill-id')
+
+    expect(removeSymlink).toHaveBeenCalledWith('shared-skill', AgentType.CLAUDE)
+    expect(mockFs.rmSync).toHaveBeenCalledWith('/Users/test/.agents/skills/shared-skill', {
+      recursive: true,
+      force: true,
     })
+    expect(removeEntry).toHaveBeenCalledWith('opaque-skill-id')
+    expect(removeEntry).toHaveBeenCalledWith('shared-skill')
+    expect(removeCommitHash).toHaveBeenCalledWith('opaque-skill-id')
+    expect(removeCommitHash).toHaveBeenCalledWith('shared-skill')
+  })
+
+  it('tracks structured update-check results in SkillManager state caches', async () => {
+    const { SkillManager } = await loadSkillManagerHarness({
+      updateCheckResult: {
+        skillId: 'opaque-skill-id',
+        status: 'hasUpdate',
+        hasUpdate: true,
+        remoteTreeHash: 'remote-tree',
+        remoteCommitHash: 'remote-commit',
+      },
+    })
+    const manager = new SkillManager()
+    manager.skills = [createSkill()]
+
+    const events: string[] = []
+    manager.on('stateChanged', () => events.push('stateChanged'))
+
+    const result = await manager.checkForUpdate('opaque-skill-id')
+
+    expect(result).toEqual({
+      skillId: 'opaque-skill-id',
+      status: 'hasUpdate',
+      hasUpdate: true,
+      remoteTreeHash: 'remote-tree',
+      remoteCommitHash: 'remote-commit',
+    })
+    expect((manager as unknown as { updateStatuses: Map<string, string> }).updateStatuses.get('opaque-skill-id')).toBe('hasUpdate')
+    expect((manager as unknown as { cachedRemoteTreeHashes: Map<string, string> }).cachedRemoteTreeHashes.get('opaque-skill-id')).toBe('remote-tree')
+    expect((manager as unknown as { cachedRemoteCommitHashes: Map<string, string> }).cachedRemoteCommitHashes.get('opaque-skill-id')).toBe('remote-commit')
+    expect(events).toHaveLength(2)
+  })
+
+  it('repairs empty folder hashes by rebuilding the local tree hash and writing it back to lock', async () => {
+    const { repoDir, remoteTreeHash } = createCommittedSkillRepo(
+      'skills/shared-skill',
+      {
+        'SKILL.md': '---\nname: Shared Skill\n---\n',
+        'README.md': '# Shared Skill\n',
+      },
+    )
+    const canonicalRoot = createTempDir('skillpilot-skill-manager-canonical-')
+    const canonicalPath = path.join(canonicalRoot, 'shared-skill')
+    fs.cpSync(path.join(repoDir, 'skills/shared-skill'), canonicalPath, { recursive: true })
+
+    const { SkillManager, updateEntry } = await loadSkillManagerWithRealUpdateCheck(repoDir)
+    const manager = new SkillManager()
+    manager.skills = [
+      createSkill({
+        canonicalPath,
+        lockEntry: {
+          source: 'owner/repo',
+          sourceType: 'github',
+          sourceUrl: 'https://github.com/owner/repo.git',
+          skillPath: 'skills/shared-skill/SKILL.md',
+          skillFolderHash: '',
+          installedAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      }),
+    ]
+
+    const result = await manager.checkForUpdate('opaque-skill-id')
+
+    expect(result).toMatchObject({
+      skillId: 'opaque-skill-id',
+      status: 'upToDate',
+      hasUpdate: false,
+      localTreeHash: remoteTreeHash,
+      remoteTreeHash,
+    })
+    expect(updateEntry).toHaveBeenCalledWith(
+      'opaque-skill-id',
+      expect.objectContaining({
+        stableId: 'opaque-skill-id',
+        skillFolderHash: remoteTreeHash,
+      }),
+    )
   })
 })

@@ -18,6 +18,7 @@ export async function setPassword(key: string, password: string): Promise<void> 
     await keytar.setPassword(SERVICE_NAME, key, password)
   } catch (err) {
     console.error('Keychain setPassword failed:', err)
+    throw err instanceof Error ? err : new Error('Keychain setPassword failed')
   }
 }
 
@@ -37,5 +38,6 @@ export async function deletePassword(key: string): Promise<void> {
     await keytar.deletePassword(SERVICE_NAME, key)
   } catch (err) {
     console.error('Keychain deletePassword failed:', err)
+    throw err instanceof Error ? err : new Error('Keychain deletePassword failed')
   }
 }

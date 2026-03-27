@@ -2,6 +2,7 @@ import https from 'https'
 import http from 'http'
 import { getProxySettings } from './proxy-settings'
 import * as keychainService from './keychain-service'
+import type { ProxySettings } from '../../shared/types'
 
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024 // 10 MB
 
@@ -23,8 +24,23 @@ interface FetchResponse {
 let cachedProxySignature = ''
 let cachedAgent: http.Agent | https.Agent | undefined
 
-async function buildProxyAgent(): Promise<http.Agent | https.Agent | undefined> {
-  const proxy = getProxySettings()
+function shouldBypassProxy(url: string, proxy: ProxySettings): boolean {
+  const hostname = new URL(url).hostname.toLowerCase()
+
+  return proxy.bypassList.some((entry) => {
+    const normalizedEntry = entry.trim().toLowerCase()
+    if (!normalizedEntry) return false
+
+    if (normalizedEntry.startsWith('*.')) {
+      const suffix = normalizedEntry.slice(1)
+      return hostname.endsWith(suffix) && hostname.length > suffix.length
+    }
+
+    return hostname === normalizedEntry
+  })
+}
+
+async function buildProxyAgent(proxy: ProxySettings): Promise<http.Agent | https.Agent | undefined> {
   if (!proxy.isEnabled || !proxy.host || !proxy.port) {
     return undefined
   }
@@ -60,7 +76,10 @@ async function buildProxyAgent(): Promise<http.Agent | https.Agent | undefined> 
 }
 
 export async function fetch(url: string, options: FetchOptions = {}): Promise<FetchResponse> {
-  const agent = await buildProxyAgent()
+  const proxy = getProxySettings()
+  const agent = shouldBypassProxy(url, proxy)
+    ? undefined
+    : await buildProxyAgent(proxy)
   const maxBytes = options.maxResponseBytes ?? MAX_RESPONSE_BYTES
 
   return new Promise((resolve, reject) => {

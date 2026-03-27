@@ -1,69 +1,181 @@
-import { describe, it, expect } from 'vitest'
+import { EventEmitter } from 'events'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// network-session-provider relies on actual HTTP/HTTPS modules.
-// We test the pure logic aspects: proxy URL construction, FetchResponse shape.
+function createProxyConfig(overrides: Partial<{
+  isEnabled: boolean
+  type: 'https' | 'socks5'
+  host: string
+  port: number
+  username?: string
+  bypassList: string[]
+}> = {}) {
+  return {
+    isEnabled: true,
+    type: 'https' as const,
+    host: 'proxy.example.com',
+    port: 3128,
+    username: 'alice',
+    bypassList: ['localhost', '*.local'],
+    ...overrides,
+  }
+}
 
-describe('NetworkSessionProvider (pure logic)', () => {
-  describe('proxy URL construction', () => {
-    function buildProxyUrl(proxy: {
-      type: string
-      host: string
-      port: number
-      username?: string
-      password?: string
-    }): string {
-      const auth = proxy.username && proxy.password
-        ? `${proxy.username}:${proxy.password}@`
-        : ''
-      const protocol = proxy.type === 'socks5' ? 'socks5' : 'http'
-      return `${protocol}://${auth}${proxy.host}:${proxy.port}`
+function createRequestMock() {
+  return vi.fn((url: string, options: unknown, callback: (res: EventEmitter & { statusCode?: number }) => void) => {
+    const response = new EventEmitter() as EventEmitter & { statusCode?: number }
+    response.statusCode = 200
+
+    callback(response)
+    queueMicrotask(() => {
+      response.emit('data', Buffer.from('ok'))
+      response.emit('end')
+    })
+
+    return {
+      on: vi.fn().mockReturnThis(),
+      write: vi.fn(),
+      end: vi.fn(),
+      destroy: vi.fn(),
     }
+  })
+}
 
-    it('builds HTTPS proxy URL without auth', () => {
-      const url = buildProxyUrl({ type: 'https', host: '127.0.0.1', port: 8080 })
-      expect(url).toBe('http://127.0.0.1:8080')
-    })
+function createAgentClassMock() {
+  return vi.fn(
+    class MockProxyAgent {
+      proxyUrl: string
 
-    it('builds SOCKS5 proxy URL', () => {
-      const url = buildProxyUrl({ type: 'socks5', host: '127.0.0.1', port: 1080 })
-      expect(url).toBe('socks5://127.0.0.1:1080')
-    })
+      constructor(proxyUrl: string) {
+        this.proxyUrl = proxyUrl
+      }
+    },
+  )
+}
 
-    it('builds proxy URL with authentication', () => {
-      const url = buildProxyUrl({
-        type: 'https',
-        host: 'proxy.example.com',
-        port: 3128,
-        username: 'user',
-        password: 'pass',
-      })
-      expect(url).toBe('http://user:pass@proxy.example.com:3128')
-    })
+async function loadNetworkSessionProvider(options?: {
+  proxy?: Partial<ReturnType<typeof createProxyConfig>>
+}) {
+  const httpsRequest = createRequestMock()
+  const httpRequest = createRequestMock()
+  const getPassword = vi.fn().mockResolvedValue('super-secret')
+  const HttpsProxyAgent = createAgentClassMock()
+  const SocksProxyAgent = createAgentClassMock()
 
-    it('omits auth when username is missing', () => {
-      const url = buildProxyUrl({
-        type: 'https',
-        host: 'proxy.example.com',
-        port: 3128,
-        password: 'pass',
-      })
-      expect(url).toBe('http://proxy.example.com:3128')
-    })
+  vi.doUnmock('../../electron/services/network-session-provider')
+  vi.doMock('https', () => ({
+    default: { request: httpsRequest },
+    request: httpsRequest,
+  }))
+  vi.doMock('http', () => ({
+    default: { request: httpRequest },
+    request: httpRequest,
+  }))
+  vi.doMock('../../electron/services/proxy-settings', () => ({
+    getProxySettings: vi.fn(() => createProxyConfig(options?.proxy)),
+  }))
+  vi.doMock('../../electron/services/keychain-service', () => ({
+    getPassword,
+  }))
+  vi.doMock('https-proxy-agent', () => ({
+    HttpsProxyAgent,
+  }))
+  vi.doMock('socks-proxy-agent', () => ({
+    SocksProxyAgent,
+  }))
+
+  const networkSessionProvider = await import('../../electron/services/network-session-provider')
+
+  return {
+    networkSessionProvider,
+    httpsRequest,
+    httpRequest,
+    getPassword,
+    HttpsProxyAgent,
+    SocksProxyAgent,
+  }
+}
+
+describe('network-session-provider', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
   })
 
-  describe('FetchResponse shape', () => {
-    it('ok is true for 2xx status codes', () => {
-      for (const status of [200, 201, 204, 299]) {
-        const ok = status >= 200 && status < 300
-        expect(ok).toBe(true)
-      }
+  it('bypasses exact-host proxy matches before building an agent', async () => {
+    const {
+      networkSessionProvider,
+      httpsRequest,
+      getPassword,
+      HttpsProxyAgent,
+    } = await loadNetworkSessionProvider()
+
+    const response = await networkSessionProvider.fetch('https://localhost/docs')
+
+    expect(await response.text()).toBe('ok')
+    expect(httpsRequest).toHaveBeenCalledTimes(1)
+    expect(httpsRequest.mock.calls[0][1]).not.toHaveProperty('agent')
+    expect(getPassword).not.toHaveBeenCalled()
+    expect(HttpsProxyAgent).not.toHaveBeenCalled()
+  })
+
+  it('uses the real proxy agent path for non-bypassed hosts and reuses the cached agent', async () => {
+    const {
+      networkSessionProvider,
+      httpsRequest,
+      getPassword,
+      HttpsProxyAgent,
+    } = await loadNetworkSessionProvider()
+
+    await networkSessionProvider.fetch('https://service.local/health')
+    await networkSessionProvider.fetch('https://api.example.com/skills')
+    await networkSessionProvider.fetch('https://api.example.com/skills?page=2')
+
+    expect(httpsRequest).toHaveBeenCalledTimes(3)
+    expect(httpsRequest.mock.calls[0][1]).not.toHaveProperty('agent')
+    expect(httpsRequest.mock.calls[1][1]).toMatchObject({
+      agent: { proxyUrl: 'http://alice:super-secret@proxy.example.com:3128' },
+    })
+    expect(httpsRequest.mock.calls[2][1]).toMatchObject({
+      agent: httpsRequest.mock.calls[1][1].agent,
+    })
+    expect(getPassword).toHaveBeenCalledTimes(2)
+    expect(HttpsProxyAgent).toHaveBeenCalledTimes(1)
+  })
+
+  it('rebuilds the proxy agent after invalidateCache is called', async () => {
+    const {
+      networkSessionProvider,
+      httpsRequest,
+      HttpsProxyAgent,
+    } = await loadNetworkSessionProvider()
+
+    await networkSessionProvider.fetch('https://api.example.com/skills')
+    networkSessionProvider.invalidateCache()
+    await networkSessionProvider.fetch('https://api.example.com/skills?page=2')
+
+    expect(httpsRequest).toHaveBeenCalledTimes(2)
+    expect(HttpsProxyAgent).toHaveBeenCalledTimes(2)
+  })
+
+  it('builds a socks5 proxy agent for non-bypassed requests', async () => {
+    const {
+      networkSessionProvider,
+      httpsRequest,
+      SocksProxyAgent,
+    } = await loadNetworkSessionProvider({
+      proxy: {
+        type: 'socks5',
+        port: 1080,
+        bypassList: [],
+      },
     })
 
-    it('ok is false for non-2xx status codes', () => {
-      for (const status of [301, 400, 404, 500]) {
-        const ok = status >= 200 && status < 300
-        expect(ok).toBe(false)
-      }
+    await networkSessionProvider.fetch('https://api.example.com/skills')
+
+    expect(httpsRequest).toHaveBeenCalledTimes(1)
+    expect(httpsRequest.mock.calls[0][1]).toMatchObject({
+      agent: { proxyUrl: 'socks5://alice:super-secret@proxy.example.com:1080' },
     })
+    expect(SocksProxyAgent).toHaveBeenCalledTimes(1)
   })
 })

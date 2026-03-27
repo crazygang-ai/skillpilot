@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Skill, InstallInput, InstallResult, SkillMetadata } from '@/types'
+import type {
+  Skill,
+  InstallInput,
+  InstallResult,
+  RemoveLocalInstallationInput,
+  SkillUpdateApplyResult,
+  SkillUpdateCheckResult,
+  SkillMetadata,
+} from '@/types'
 
 export function useSkills() {
   return useQuery<Skill[]>({
@@ -33,7 +41,19 @@ export function useUnassignSkill() {
   })
 }
 
-export function useRemoveLocalSkill() {
+export function useRemoveLocalInstallation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: RemoveLocalInstallationInput) =>
+      window.electronAPI.skills.removeLocalInstallation(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skills'] })
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
+    },
+  })
+}
+
+export function useDeleteSkill() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ skillId }: { skillId: string }) =>
@@ -80,8 +100,13 @@ export function useSaveSkillMD() {
 }
 
 export function useCheckUpdate() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (skillId: string) => window.electronAPI.skills.checkUpdate(skillId),
+    mutationFn: (skillId: string) =>
+      window.electronAPI.skills.checkUpdate(skillId) as Promise<SkillUpdateCheckResult>,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skills'] })
+    },
   })
 }
 
@@ -94,7 +119,8 @@ export function useCheckAllUpdates() {
 export function useUpdateSkill() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (skillId: string) => window.electronAPI.skills.updateSkill(skillId),
+    mutationFn: (skillId: string) =>
+      window.electronAPI.skills.updateSkill(skillId) as Promise<SkillUpdateApplyResult>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skills'] })
     },

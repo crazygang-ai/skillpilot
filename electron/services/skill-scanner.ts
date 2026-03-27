@@ -6,12 +6,19 @@ import { SHARED_SKILLS_DIR } from '../utils/constants'
 import * as skillMDParser from './skill-md-parser'
 import * as symlinkManager from './symlink-manager'
 import * as lockFileManager from './lock-file-manager'
+import {
+  resolveDirectoryName,
+  resolveStableSkillId,
+} from './skill-identity'
 
 interface ScannedSkill {
   id: string
+  storageName: string
+  directoryName: string
   canonicalPath: string
   scope: SkillScope
   installations: SkillInstallation[]
+  lockEntry?: Skill['lockEntry']
 }
 
 /**
@@ -19,9 +26,10 @@ interface ScannedSkill {
  */
 export async function scanAll(): Promise<Skill[]> {
   const skillMap = new Map<string, ScannedSkill>()
+  const lockEntries = lockFileManager.read().skills
 
   // 1. Scan shared global directory
-  scanDirectory(SHARED_SKILLS_DIR, { kind: 'sharedGlobal' }, skillMap)
+  scanDirectory(SHARED_SKILLS_DIR, { kind: 'sharedGlobal' }, skillMap, lockEntries)
 
   // 2. Scan each agent's skill directory
   for (const config of AGENT_CONFIGS) {
@@ -29,6 +37,7 @@ export async function scanAll(): Promise<Skill[]> {
       config.skillsDirectoryPath,
       { kind: 'agentLocal', agentType: config.type },
       skillMap,
+      lockEntries,
     )
   }
 
@@ -49,6 +58,7 @@ function scanDirectory(
   dirPath: string,
   defaultScope: SkillScope,
   skillMap: Map<string, ScannedSkill>,
+  lockEntries: Record<string, Skill['lockEntry']>,
 ): void {
   if (!fs.existsSync(dirPath)) return
 
@@ -71,7 +81,12 @@ function scanDirectory(
     }
 
     const canonicalPath = symlinkManager.resolveCanonical(fullPath)
-    const skillId = entry
+    const storageName = entry
+    const initialLockEntry = lockEntries[storageName]
+    const resolvedSkillId = resolveStableSkillId(canonicalPath, initialLockEntry)
+    const lockEntry = lockEntries[resolvedSkillId] ?? initialLockEntry
+    const skillId = resolveStableSkillId(canonicalPath, lockEntry)
+    const directoryName = resolveDirectoryName(storageName, canonicalPath, lockEntry)
 
     // Check if this skill directory contains SKILL.md
     const skillMdPath = path.join(canonicalPath, 'SKILL.md')
@@ -80,15 +95,18 @@ function scanDirectory(
     if (skillMap.has(skillId)) {
       // Merge: add installation to existing skill
       const existing = skillMap.get(skillId)!
-      mergeInstallation(existing, fullPath, defaultScope)
+      mergeInstallation(existing, storageName, canonicalPath, defaultScope)
     } else {
       // New skill
-      const installations = symlinkManager.findInstallations(skillId, canonicalPath)
+      const installations = symlinkManager.findInstallations(storageName, canonicalPath)
       skillMap.set(skillId, {
         id: skillId,
+        storageName,
+        directoryName,
         canonicalPath,
         scope: installations.length > 1 ? { kind: 'sharedGlobal' } : defaultScope,
         installations,
+        lockEntry,
       })
     }
   }
@@ -96,9 +114,17 @@ function scanDirectory(
 
 function mergeInstallation(
   skill: ScannedSkill,
-  _foundPath: string,
+  storageName: string,
+  canonicalPath: string,
   _scope: SkillScope,
 ): void {
+  const existingPaths = new Set(skill.installations.map((installation) => installation.path))
+  for (const installation of symlinkManager.findInstallations(storageName, canonicalPath)) {
+    if (!existingPaths.has(installation.path)) {
+      skill.installations.push(installation)
+    }
+  }
+
   // Promote scope to sharedGlobal if found in multiple locations
   if (skill.scope.kind !== 'sharedGlobal') {
     skill.scope = { kind: 'sharedGlobal' }
@@ -111,14 +137,21 @@ function buildSkill(skillId: string, scanned: ScannedSkill): Skill | null {
 
   try {
     const { metadata, markdownBody } = skillMDParser.parseFile(skillMdPath)
-    const lockEntry = lockFileManager.getEntry(skillId)
+    const lockEntry = scanned.lockEntry
+      ? {
+          ...scanned.lockEntry,
+          stableId: scanned.lockEntry.stableId ?? skillId,
+        }
+      : undefined
 
     return {
       id: skillId,
+      storageName: scanned.storageName,
+      directoryName: scanned.directoryName,
       canonicalPath: scanned.canonicalPath,
       metadata: {
         ...metadata,
-        name: metadata.name || skillId,
+        name: metadata.name || scanned.directoryName,
       },
       markdownBody,
       scope: scanned.scope,

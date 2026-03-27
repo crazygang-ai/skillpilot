@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { X, Upload, FileText, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useInstallSkillFromLocal } from '@/hooks/useSkills'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -10,6 +11,7 @@ interface UploadSkillModalProps {
 }
 
 export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
+  const { t } = useTranslation()
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
@@ -19,12 +21,16 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
 
   const canInstall = !!selectedPath && selectedAgents.length > 0 && !installFromLocal.isPending
 
+  function setSelectedDirectory(dirPath: string) {
+    setSelectedPath(dirPath)
+    setSelectedName(getPathName(dirPath))
+  }
+
   async function handleBrowse() {
     try {
-      const result = await window.electronAPI.dialog.openFileOrFolder()
+      const result = await window.electronAPI.dialog.openDirectory()
       if (result) {
-        setSelectedPath(result)
-        setSelectedName(result.split('/').pop() ?? result)
+        setSelectedDirectory(result)
       }
     } catch {
       // user cancelled
@@ -34,14 +40,24 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
   async function handleInstall() {
     if (!canInstall || !selectedPath) return
     try {
-      await installFromLocal.mutateAsync({
+      const result = await installFromLocal.mutateAsync({
         localPath: selectedPath,
         agentTypes: selectedAgents,
       })
-      addNotification('success', `Installed skill from local path`)
+      if (!result?.success) {
+        addNotification(
+          'error',
+          result?.error ?? t('install.local.directoryOnlyError'),
+        )
+        return
+      }
+      addNotification('success', t('install.local.success'))
       onClose()
     } catch (err) {
-      addNotification('error', err instanceof Error ? err.message : 'Install failed')
+      addNotification(
+        'error',
+        err instanceof Error ? err.message : t('install.local.directoryOnlyError'),
+      )
     }
   }
 
@@ -63,18 +79,30 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
       // Electron provides the path property on File objects
       const filePath = (file as File & { path?: string }).path
       if (filePath) {
-        setSelectedPath(filePath)
-        setSelectedName(file.name)
+        const lowerName = file.name.toLowerCase()
+        const normalizedPath = filePath.toLowerCase()
+
+        if (lowerName.endsWith('.zip') || normalizedPath.endsWith('.zip')) {
+          addNotification('error', t('install.local.zipNotSupported'))
+          return
+        }
+
+        if (lowerName === 'skill.md' || normalizedPath.endsWith('/skill.md')) {
+          addNotification('error', t('install.local.fileNotSupported'))
+          return
+        }
+
+        setSelectedDirectory(filePath)
       }
     }
-  }, [])
+  }, [addNotification, t])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-bg-secondary border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-text-primary">Install from Local</h2>
+          <h2 className="text-lg font-semibold text-text-primary">{t('install.local.title')}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary">
             <X className="w-5 h-5" />
           </button>
@@ -84,7 +112,9 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
         <div className="px-5 py-4 space-y-5">
           {/* Drop zone */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">Skill File or Folder</label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              {t('install.local.directoryLabel')}
+            </label>
             {!selectedPath ? (
               <div
                 onDragOver={handleDragOver}
@@ -100,9 +130,10 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
               >
                 <Upload className="w-8 h-8 text-text-muted" />
                 <p className="text-sm text-text-secondary">
-                  Drop file here or <span className="text-accent">browse</span>
+                  {t('install.local.dropPromptPrefix')}{' '}
+                  <span className="text-accent">{t('install.local.browse')}</span>
                 </p>
-                <p className="text-xs text-text-muted">SKILL.md file or folder containing one</p>
+                <p className="text-xs text-text-muted">{t('install.local.directoryHint')}</p>
               </div>
             ) : (
               <div className="flex items-center gap-3 px-4 py-3 bg-bg-tertiary rounded-lg">
@@ -123,7 +154,9 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
 
           {/* Agent selector */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">Target Agents</label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              {t('install.installTo')}
+            </label>
             <AgentSelector selected={selectedAgents} onChange={setSelectedAgents} />
           </div>
         </div>
@@ -134,7 +167,7 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
             onClick={onClose}
             className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary rounded-lg"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleInstall}
@@ -147,10 +180,16 @@ export default function UploadSkillModal({ onClose }: UploadSkillModalProps) {
             )}
           >
             {installFromLocal.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Install
+            {t('common.install')}
           </button>
         </div>
       </div>
     </div>
   )
+}
+
+function getPathName(value: string): string {
+  const normalized = value.replace(/[\\/]+$/, '')
+  const segments = normalized.split(/[\\/]/)
+  return segments[segments.length - 1] || value
 }

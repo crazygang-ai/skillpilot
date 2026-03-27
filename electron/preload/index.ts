@@ -1,90 +1,81 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { IPC_CHANNELS } from '../../shared/ipc'
 
-const electronAPI = {
+export const electronAPI = {
   // Agent
   agents: {
-    detect: () => ipcRenderer.invoke('agent:detect'),
+    detect: () => ipcRenderer.invoke(IPC_CHANNELS.AGENT.DETECT),
   },
 
   // Skills
   skills: {
-    scanAll: () => ipcRenderer.invoke('skill:scanAll'),
+    scanAll: () => ipcRenderer.invoke(IPC_CHANNELS.SKILL.SCAN_ALL),
     assign: (skillPath: string, agentType: string) =>
-      ipcRenderer.invoke('skill:assign', skillPath, agentType),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.ASSIGN, skillPath, agentType),
     unassign: (skillPath: string, agentType: string) =>
-      ipcRenderer.invoke('skill:unassign', skillPath, agentType),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.UNASSIGN, skillPath, agentType),
+    removeLocalInstallation: (input: unknown) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.REMOVE_LOCAL_INSTALLATION, input),
     delete: (skillId: string) =>
-      ipcRenderer.invoke('skill:delete', skillId),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.DELETE, skillId),
     install: (input: unknown) =>
-      ipcRenderer.invoke('skill:install', input),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.INSTALL, input),
     installFromLocal: (localPath: string, agentTypes: string[]) =>
-      ipcRenderer.invoke('skill:installFromLocal', localPath, agentTypes),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.INSTALL_FROM_LOCAL, localPath, agentTypes),
     save: (skillId: string, metadata: unknown, body: string) =>
-      ipcRenderer.invoke('skill:save', skillId, metadata, body),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.SAVE, skillId, metadata, body),
     checkUpdate: (skillId: string) =>
-      ipcRenderer.invoke('skill:checkUpdate', skillId),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.CHECK_UPDATE, skillId),
     checkAllUpdates: () =>
-      ipcRenderer.invoke('skill:checkAllUpdates'),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.CHECK_ALL_UPDATES),
     updateSkill: (skillId: string) =>
-      ipcRenderer.invoke('skill:updateSkill', skillId),
+      ipcRenderer.invoke(IPC_CHANNELS.SKILL.UPDATE_SKILL, skillId),
   },
 
   // Registry
   registry: {
     leaderboard: (category: string) =>
-      ipcRenderer.invoke('registry:leaderboard', category),
+      ipcRenderer.invoke(IPC_CHANNELS.REGISTRY.LEADERBOARD, category),
     search: (query: string) =>
-      ipcRenderer.invoke('registry:search', query),
+      ipcRenderer.invoke(IPC_CHANNELS.REGISTRY.SEARCH, query),
   },
 
   // Content Fetcher
   content: {
     fetch: (source: string, skillId: string) =>
-      ipcRenderer.invoke('content:fetch', source, skillId),
+      ipcRenderer.invoke(IPC_CHANNELS.CONTENT.FETCH, source, skillId),
   },
 
   // Filesystem
   fs: {
     revealInFinder: (path: string) =>
-      ipcRenderer.invoke('fs:revealInFinder', path),
-    exportToDesktop: (skillPath: string) =>
-      ipcRenderer.invoke('fs:exportToDesktop', skillPath),
+      ipcRenderer.invoke(IPC_CHANNELS.FS.REVEAL_IN_FINDER, path),
   },
 
   // Dialog
   dialog: {
-    openFileOrFolder: () =>
-      ipcRenderer.invoke('dialog:openFileOrFolder'),
+    openDirectory: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.DIALOG.OPEN_DIRECTORY),
   },
 
   // Settings
   settings: {
-    getProxy: () => ipcRenderer.invoke('settings:getProxy'),
+    getProxy: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS.GET_PROXY),
     setProxy: (settings: unknown) =>
-      ipcRenderer.invoke('settings:setProxy', settings),
+      ipcRenderer.invoke(IPC_CHANNELS.SETTINGS.SET_PROXY, settings),
   },
 
   // Updater
   updater: {
-    checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
-    downloadUpdate: () => ipcRenderer.invoke('updater:downloadUpdate'),
-    quitAndInstall: () => ipcRenderer.invoke('updater:quitAndInstall'),
-    getCurrentVersion: () => ipcRenderer.invoke('updater:getCurrentVersion'),
-    setAutoDownload: (value: boolean) =>
-      ipcRenderer.invoke('updater:setAutoDownload', value),
-    onUpdateStatus: (callback: (status: unknown) => void) => {
-      const handler = (_event: unknown, status: unknown) => callback(status)
-      ipcRenderer.on('updater:status', handler)
-      return () => ipcRenderer.removeListener('updater:status', handler)
-    },
+    getCurrentVersion: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER.GET_VERSION),
   },
 
   // Watcher
   watcher: {
     onChange: (callback: () => void) => {
       const handler = () => callback()
-      ipcRenderer.on('watcher:onChange', handler)
-      return () => ipcRenderer.removeListener('watcher:onChange', handler)
+      ipcRenderer.on(IPC_CHANNELS.WATCHER.ON_CHANGE, handler)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.WATCHER.ON_CHANGE, handler)
     },
   },
 }

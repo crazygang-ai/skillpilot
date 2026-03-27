@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useNotificationStore } from '@/stores/notificationStore'
 import type { ProxyType } from '@/types'
 
 export default function ProxySettingsPanel() {
+  const { t } = useTranslation()
   const { proxy, loadProxy, saveProxy } = useSettingsStore()
+  const addNotification = useNotificationStore((s) => s.addNotification)
 
   const [isEnabled, setIsEnabled] = useState(proxy.isEnabled)
   const [type, setType] = useState<ProxyType>(proxy.type)
@@ -12,6 +16,7 @@ export default function ProxySettingsPanel() {
   const [port, setPort] = useState(proxy.port)
   const [username, setUsername] = useState(proxy.username ?? '')
   const [password, setPassword] = useState('')
+  const [passwordDirty, setPasswordDirty] = useState(false)
   const [bypassList, setBypassList] = useState(proxy.bypassList.join(', '))
   const [saving, setSaving] = useState(false)
 
@@ -25,13 +30,15 @@ export default function ProxySettingsPanel() {
     setHost(proxy.host)
     setPort(proxy.port)
     setUsername(proxy.username ?? '')
+    setPassword('')
+    setPasswordDirty(false)
     setBypassList(proxy.bypassList.join(', '))
   }, [proxy])
 
   async function handleSave() {
     setSaving(true)
     try {
-      await saveProxy({
+      const nextProxy = {
         isEnabled,
         type,
         host,
@@ -41,7 +48,20 @@ export default function ProxySettingsPanel() {
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean),
+      }
+
+      await saveProxy({
+        proxy: nextProxy,
+        ...((!isEnabled || passwordDirty) ? { password } : {}),
       })
+      addNotification('success', t('settings.proxySaved'))
+      setPassword('')
+      setPasswordDirty(false)
+    } catch (err) {
+      addNotification(
+        'error',
+        err instanceof Error ? err.message : t('settings.proxySaveFailed'),
+      )
     } finally {
       setSaving(false)
     }
@@ -59,25 +79,25 @@ export default function ProxySettingsPanel() {
           onChange={(e) => setIsEnabled(e.target.checked)}
           className="w-4 h-4 rounded accent-accent"
         />
-        <span className="text-sm text-text-primary">Enable Proxy</span>
+        <span className="text-sm text-text-primary">{t('settings.proxyEnabled')}</span>
       </label>
 
       {/* Proxy type */}
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-2">Type</label>
+        <label className="block text-sm font-medium text-text-secondary mb-2">{t('settings.proxyType')}</label>
         <div className="flex gap-2">
-          {(['https', 'socks5'] as const).map((t) => (
+          {(['https', 'socks5'] as const).map((proxyKind) => (
             <button
-              key={t}
-              onClick={() => setType(t)}
+              key={proxyKind}
+              onClick={() => setType(proxyKind)}
               className={cn(
                 'px-4 py-1.5 text-sm rounded-lg border',
-                type === t
+                type === proxyKind
                   ? 'bg-accent text-white border-accent'
                   : 'bg-bg-tertiary text-text-secondary border-border hover:border-border-light',
               )}
             >
-              {t.toUpperCase()}
+              {proxyKind === 'https' ? t('settings.proxyTypeHttps') : t('settings.proxyTypeSocks5')}
             </button>
           ))}
         </div>
@@ -86,31 +106,42 @@ export default function ProxySettingsPanel() {
       {/* Host & Port */}
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-text-secondary mb-1">Host</label>
+          <label className="block text-sm font-medium text-text-secondary mb-1">{t('settings.proxyHost')}</label>
           <input type="text" value={host} onChange={(e) => setHost(e.target.value)} placeholder="127.0.0.1" className={inputClass} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-text-secondary mb-1">Port</label>
+          <label className="block text-sm font-medium text-text-secondary mb-1">{t('settings.proxyPort')}</label>
           <input type="number" value={port || ''} onChange={(e) => setPort(Number(e.target.value))} placeholder="7890" className={inputClass} />
         </div>
       </div>
 
       {/* Username */}
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">Username <span className="text-text-muted">(optional)</span></label>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          {t('settings.proxyUsername')} <span className="text-text-muted">({t('settings.optional')})</span>
+        </label>
         <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className={inputClass} />
       </div>
 
       {/* Password */}
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">Password</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Stored in Keychain" className={inputClass} />
-        <p className="mt-1 text-xs text-text-muted">Password is stored securely in the system Keychain.</p>
+        <label className="block text-sm font-medium text-text-secondary mb-1">{t('settings.proxyPassword')}</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value)
+            setPasswordDirty(true)
+          }}
+          placeholder={t('settings.proxyPasswordPlaceholder')}
+          className={inputClass}
+        />
+        <p className="mt-1 text-xs text-text-muted">{t('settings.proxyPasswordHint')}</p>
       </div>
 
       {/* Bypass list */}
       <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">Bypass List</label>
+        <label className="block text-sm font-medium text-text-secondary mb-1">{t('settings.proxyBypass')}</label>
         <textarea
           value={bypassList}
           onChange={(e) => setBypassList(e.target.value)}
@@ -118,7 +149,7 @@ export default function ProxySettingsPanel() {
           rows={3}
           className={cn(inputClass, 'resize-none')}
         />
-        <p className="mt-1 text-xs text-text-muted">Comma-separated list of hosts to bypass the proxy.</p>
+        <p className="mt-1 text-xs text-text-muted">{t('settings.proxyBypassHint')}</p>
       </div>
 
       {/* Save */}
@@ -127,7 +158,7 @@ export default function ProxySettingsPanel() {
         disabled={saving}
         className="px-5 py-2 text-sm font-medium bg-accent hover:bg-accent-hover text-white rounded-lg disabled:opacity-50"
       >
-        {saving ? 'Saving...' : 'Save'}
+        {saving ? t('common.saving') : t('common.save')}
       </button>
     </div>
   )

@@ -56,6 +56,25 @@ export function removeCommitHash(skillId: string): void {
   save()
 }
 
+export function migrateCommitHashKey(legacySkillId: string, stableSkillId: string): void {
+  if (!legacySkillId || !stableSkillId || legacySkillId === stableSkillId) {
+    return
+  }
+
+  const data = load()
+  const legacyCommitHash = data.commitHashes[legacySkillId]
+  if (!legacyCommitHash) {
+    return
+  }
+
+  if (!data.commitHashes[stableSkillId]) {
+    data.commitHashes[stableSkillId] = legacyCommitHash
+  }
+
+  delete data.commitHashes[legacySkillId]
+  save()
+}
+
 export function getRepoHistory(repoURL: string): string | undefined {
   return load().repoHistory[repoURL]
 }

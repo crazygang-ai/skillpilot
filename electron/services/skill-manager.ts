@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import {
   Skill, Agent, AgentType, SkillMetadata,
-  InstallInput, InstallResult, LockEntry, SkillUpdateStatus,
+  InstallInput, InstallResult, LockEntry, SkillUpdateApplyResult, SkillUpdateCheckResult, SkillUpdateStatus,
 } from '../../shared/types'
 import { SHARED_SKILLS_DIR } from '../utils/constants'
 import { AGENT_CONFIGS } from '../types/agent-config'
@@ -16,6 +16,14 @@ import * as commitHashCache from './commit-hash-cache'
 import * as skillMDParser from './skill-md-parser'
 import * as updateChecker from './update-checker'
 import { FileSystemWatcher } from './file-system-watcher'
+import {
+  copyDirectoryWithoutSymlinks,
+  resolveLocalSkillImport,
+} from './local-skill-importer'
+import {
+  createGitHubSkillId,
+  resolveLocalStableSkillId,
+} from './skill-identity'
 
 export class SkillManager extends EventEmitter {
   skills: Skill[] = []
@@ -33,6 +41,7 @@ export class SkillManager extends EventEmitter {
   constructor() {
     super()
     this.watcher.on('change', () => {
+      this.emit('watcherChanged')
       this.refresh().catch(console.error)
     })
   }
@@ -101,6 +110,24 @@ export class SkillManager extends EventEmitter {
     await this.refresh()
   }
 
+  async removeLocalInstallation(skillId: string, agentType: AgentType): Promise<void> {
+    const skill = this.skills.find((s) => s.id === skillId)
+    if (!skill) return
+
+    const installation = skill.installations.find(
+      (inst) => inst.agentType === agentType && !inst.isInherited,
+    )
+    if (!installation) return
+
+    if (installation.isSymlink) {
+      symlinkManager.removeSymlink(path.basename(installation.path), agentType)
+    } else if (fs.existsSync(installation.path)) {
+      fs.rmSync(installation.path, { recursive: true, force: true })
+    }
+
+    await this.refresh()
+  }
+
   async deleteSkill(skillId: string): Promise<void> {
     const skill = this.skills.find(s => s.id === skillId)
     if (!skill) return
@@ -108,7 +135,7 @@ export class SkillManager extends EventEmitter {
     // Remove all direct symlinks
     for (const inst of skill.installations) {
       if (!inst.isInherited && inst.isSymlink) {
-        symlinkManager.removeSymlink(skillId, inst.agentType)
+        symlinkManager.removeSymlink(path.basename(inst.path), inst.agentType)
       }
     }
 
@@ -119,7 +146,13 @@ export class SkillManager extends EventEmitter {
 
     // Remove lock entry
     lockFileManager.removeEntry(skillId)
+    if (skill.storageName !== skillId) {
+      lockFileManager.removeEntry(skill.storageName)
+    }
     commitHashCache.removeCommitHash(skillId)
+    if (skill.storageName !== skillId) {
+      commitHashCache.removeCommitHash(skill.storageName)
+    }
 
     // Clean transient caches
     this.updateStatuses.delete(skillId)
@@ -156,7 +189,9 @@ export class SkillManager extends EventEmitter {
       const installedIds: string[] = []
 
       for (const skillDir of skillDirs) {
-        const skillId = path.basename(skillDir)
+        const directoryName = path.basename(skillDir)
+        const skillPath = path.relative(repoDir, skillDir) + '/SKILL.md'
+        const skillId = createGitHubSkillId(input.repoUrl, skillPath)
         const destDir = path.join(SHARED_SKILLS_DIR, skillId)
 
         // Copy to canonical location
@@ -166,7 +201,7 @@ export class SkillManager extends EventEmitter {
         if (fs.existsSync(destDir)) {
           fs.rmSync(destDir, { recursive: true, force: true })
         }
-        copyDirSync(skillDir, destDir)
+        copyDirectoryWithoutSymlinks(skillDir, destDir)
 
         // Create symlinks for target agents
         for (const agentType of input.agentTypes) {
@@ -180,10 +215,11 @@ export class SkillManager extends EventEmitter {
         const now = new Date().toISOString()
 
         const lockEntry: LockEntry = {
+          stableId: skillId,
           source: ownerRepo,
           sourceType: input.source,
           sourceUrl: gitService.normalizeRepoURL(input.repoUrl),
-          skillPath: path.relative(repoDir, skillDir) + '/SKILL.md',
+          skillPath,
           skillFolderHash: treeHash,
           installedAt: now,
           updatedAt: now,
@@ -207,19 +243,11 @@ export class SkillManager extends EventEmitter {
 
   async installFromLocal(localPath: string, agentTypes: AgentType[]): Promise<InstallResult> {
     try {
-      const resolvedLocal = path.resolve(localPath)
-      if (resolvedLocal.includes('..')) {
-        return { success: false, error: 'Invalid local path' }
-      }
-      const skillId = path.basename(resolvedLocal)
-      if (!skillId || skillId === '.' || skillId === '..') {
-        return { success: false, error: 'Invalid skill directory name' }
-      }
-      const skillMdPath = path.join(resolvedLocal, 'SKILL.md')
-
-      if (!fs.existsSync(skillMdPath)) {
-        return { success: false, error: 'No SKILL.md found in directory' }
-      }
+      const {
+        realPath,
+        directoryName,
+      } = resolveLocalSkillImport(localPath)
+      const skillId = resolveLocalStableSkillId(realPath, lockFileManager.read().skills)
 
       const destDir = path.join(SHARED_SKILLS_DIR, skillId)
       if (!fs.existsSync(SHARED_SKILLS_DIR)) {
@@ -228,7 +256,7 @@ export class SkillManager extends EventEmitter {
       if (fs.existsSync(destDir)) {
         fs.rmSync(destDir, { recursive: true, force: true })
       }
-      copyDirSync(resolvedLocal, destDir)
+      copyDirectoryWithoutSymlinks(realPath, destDir)
 
       for (const agentType of agentTypes) {
         symlinkManager.createSymlink(destDir, agentType)
@@ -236,9 +264,10 @@ export class SkillManager extends EventEmitter {
 
       const now = new Date().toISOString()
       const lockEntry: LockEntry = {
-        source: skillId,
+        stableId: skillId,
+        source: directoryName,
         sourceType: 'local',
-        sourceUrl: resolvedLocal,
+        sourceUrl: realPath,
         skillPath: 'SKILL.md',
         skillFolderHash: '',
         installedAt: now,
@@ -272,27 +301,51 @@ export class SkillManager extends EventEmitter {
 
   // ---- Update Detection ----
 
-  async checkForUpdate(skillId: string): Promise<void> {
+  async checkForUpdate(skillId: string): Promise<SkillUpdateCheckResult> {
     const skill = this.skills.find(s => s.id === skillId)
-    if (!skill) return
+    if (!skill) {
+      throw new Error(`Skill not found: ${skillId}`)
+    }
 
     this.updateStatuses.set(skillId, 'checking')
     this.emit('stateChanged')
 
     try {
       const result = await updateChecker.checkSkillUpdate(skill)
-      if (result.hasUpdate) {
-        this.updateStatuses.set(skillId, 'hasUpdate')
-        if (result.remoteTreeHash) this.cachedRemoteTreeHashes.set(skillId, result.remoteTreeHash)
-        if (result.remoteCommitHash) this.cachedRemoteCommitHashes.set(skillId, result.remoteCommitHash)
-      } else {
-        this.updateStatuses.set(skillId, 'upToDate')
-      }
-    } catch {
-      this.updateStatuses.set(skillId, 'error')
-    }
 
-    this.emit('stateChanged')
+      if (skill.lockEntry && !skill.lockEntry.skillFolderHash && result.localTreeHash) {
+        const repairedLockEntry = {
+          ...skill.lockEntry,
+          stableId: skill.id,
+          skillFolderHash: result.localTreeHash,
+        }
+        lockFileManager.updateEntry(skillId, repairedLockEntry)
+        skill.lockEntry = repairedLockEntry
+      }
+
+      this.updateStatuses.set(skillId, result.status)
+
+      if (result.status === 'hasUpdate') {
+        if (result.remoteTreeHash) {
+          this.cachedRemoteTreeHashes.set(skillId, result.remoteTreeHash)
+        }
+        if (result.remoteCommitHash) {
+          this.cachedRemoteCommitHashes.set(skillId, result.remoteCommitHash)
+        }
+      } else {
+        this.cachedRemoteTreeHashes.delete(skillId)
+        this.cachedRemoteCommitHashes.delete(skillId)
+      }
+
+      this.emit('stateChanged')
+      return result
+    } catch (err) {
+      this.updateStatuses.set(skillId, 'error')
+      this.cachedRemoteTreeHashes.delete(skillId)
+      this.cachedRemoteCommitHashes.delete(skillId)
+      this.emit('stateChanged')
+      throw err instanceof Error ? err : new Error(`Failed to check updates for ${skillId}`)
+    }
   }
 
   async checkAllUpdates(): Promise<void> {
@@ -302,9 +355,14 @@ export class SkillManager extends EventEmitter {
     await Promise.allSettled(updatable.map(s => this.checkForUpdate(s.id)))
   }
 
-  async updateSkill(skillId: string): Promise<void> {
+  async updateSkill(skillId: string): Promise<SkillUpdateApplyResult> {
     const skill = this.skills.find(s => s.id === skillId)
-    if (!skill?.lockEntry) return
+    if (!skill) {
+      throw new Error(`Skill not found: ${skillId}`)
+    }
+    if (!skill.lockEntry || skill.lockEntry.sourceType !== 'github') {
+      throw new Error(`Skill is not updatable: ${skillId}`)
+    }
 
     try {
       const repoDir = await gitService.shallowClone(skill.lockEntry.sourceUrl)
@@ -315,12 +373,14 @@ export class SkillManager extends EventEmitter {
         throw new Error(`Skill path escapes repo directory: ${skillFolderPath}`)
       }
 
-      if (!fs.existsSync(sourceDir)) return
+      if (!fs.existsSync(sourceDir)) {
+        throw new Error(`Skill source not found in repository: ${skill.lockEntry.skillPath}`)
+      }
 
       // Replace canonical directory content
       const destDir = skill.canonicalPath
       fs.rmSync(destDir, { recursive: true, force: true })
-      copyDirSync(sourceDir, destDir)
+      copyDirectoryWithoutSymlinks(sourceDir, destDir)
 
       // Update lock entry
       const treeHash = await safeGetTreeHash(sourceDir, repoDir)
@@ -329,6 +389,7 @@ export class SkillManager extends EventEmitter {
 
       lockFileManager.updateEntry(skillId, {
         ...skill.lockEntry,
+        stableId: skill.id,
         skillFolderHash: treeHash,
         updatedAt: now,
       })
@@ -342,8 +403,17 @@ export class SkillManager extends EventEmitter {
       this.cachedRemoteCommitHashes.delete(skillId)
 
       await this.refresh()
+      return {
+        skillId,
+        status: 'updated',
+        remoteTreeHash: treeHash || undefined,
+        remoteCommitHash: commitHash || undefined,
+      }
     } catch (err) {
+      this.updateStatuses.set(skillId, 'error')
+      this.emit('stateChanged')
       console.error(`Failed to update skill ${skillId}:`, err)
+      throw err instanceof Error ? err : new Error(`Failed to update skill ${skillId}`)
     }
   }
 
@@ -356,29 +426,13 @@ export class SkillManager extends EventEmitter {
       hasUpdate: this.updateStatuses.get(skill.id) === 'hasUpdate',
       remoteTreeHash: this.cachedRemoteTreeHashes.get(skill.id),
       remoteCommitHash: this.cachedRemoteCommitHashes.get(skill.id),
-      localCommitHash: commitHashCache.getCommitHash(skill.id),
+      localCommitHash: commitHashCache.getCommitHash(skill.id) ?? commitHashCache.getCommitHash(skill.storageName),
     }))
   }
 
   destroy(): void {
     this.watcher.stopWatching()
     this.removeAllListeners()
-  }
-}
-
-// ---- Utility Functions ----
-
-function copyDirSync(src: string, dest: string): void {
-  fs.mkdirSync(dest, { recursive: true })
-  for (const entry of fs.readdirSync(src)) {
-    const srcPath = path.join(src, entry)
-    const destPath = path.join(dest, entry)
-    const stat = fs.statSync(srcPath)
-    if (stat.isDirectory()) {
-      copyDirSync(srcPath, destPath)
-    } else {
-      fs.copyFileSync(srcPath, destPath)
-    }
   }
 }
 

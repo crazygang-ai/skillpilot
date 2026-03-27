@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { AgentIcon } from '@/components/common/AgentIcon'
 import Tooltip from '@/components/common/Tooltip'
 import AddSkillButton from '@/components/install/AddSkillButton'
-import UpdateNotifier from '@/components/updater/UpdateNotifier'
 import type { AgentType, ViewType } from '@/types'
 
 export default function Sidebar() {
@@ -132,9 +131,8 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Bottom: Update Notifier + Add Skill */}
+      {/* Bottom: Add Skill */}
       <div className="flex-shrink-0 border-t border-border">
-        <UpdateNotifier />
         <div className="px-3 py-2.5 flex justify-end">
           <AddSkillButton />
         </div>

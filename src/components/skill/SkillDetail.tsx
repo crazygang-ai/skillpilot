@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ClipboardCopy,
   FolderOpen,
@@ -12,7 +13,15 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
-import { useSkills, useAssignSkill, useUnassignSkill, useRemoveLocalSkill, useCheckUpdate, useUpdateSkill } from '@/hooks/useSkills'
+import {
+  useSkills,
+  useAssignSkill,
+  useUnassignSkill,
+  useRemoveLocalInstallation,
+  useDeleteSkill,
+  useCheckUpdate,
+  useUpdateSkill,
+} from '@/hooks/useSkills'
 import { useAgents } from '@/hooks/useAgents'
 import { useAppStore } from '@/stores/appStore'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -45,12 +54,13 @@ function getAgentStatusForSkill(
 }
 
 function ScopeBadge({ scope }: { scope: Skill['scope'] }) {
+  const { t } = useTranslation()
   const text =
     scope.kind === 'sharedGlobal'
-      ? 'Global'
+      ? t('skillDetail.scopeGlobal')
       : scope.kind === 'agentLocal'
         ? scope.agentType
-        : 'Project'
+        : t('skillDetail.scopeProject')
   return (
     <span className="inline-flex items-center rounded-md bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary">
       {text}
@@ -86,6 +96,7 @@ function ActionButton({ icon, label, onClick, variant = 'default', disabled }: A
 }
 
 export default function SkillDetail() {
+  const { t } = useTranslation()
   const { data: skills } = useSkills()
   const { data: agents } = useAgents()
   const { selectedSkillId, setSelectedSkillId, setEditingSkillId } = useAppStore()
@@ -93,7 +104,8 @@ export default function SkillDetail() {
 
   const assignSkill = useAssignSkill()
   const unassignSkill = useUnassignSkill()
-  const removeLocal = useRemoveLocalSkill()
+  const removeLocalInstallation = useRemoveLocalInstallation()
+  const deleteSkill = useDeleteSkill()
   const checkUpdate = useCheckUpdate()
   const updateSkill = useUpdateSkill()
 
@@ -107,8 +119,8 @@ export default function SkillDetail() {
   const handleCopyPath = useCallback(() => {
     if (!skill) return
     navigator.clipboard.writeText(skill.canonicalPath)
-    addNotification('success', 'Path copied to clipboard')
-  }, [skill, addNotification])
+    addNotification('success', t('skillDetail.pathCopied'))
+  }, [skill, addNotification, t])
 
   const handleRevealInFinder = useCallback(() => {
     if (!skill) return
@@ -117,40 +129,53 @@ export default function SkillDetail() {
 
   const handleDelete = useCallback(() => {
     if (!skill) return
-    removeLocal.mutate(
+    deleteSkill.mutate(
       { skillId: skill.id },
       {
         onSuccess: () => {
-          addNotification('success', `Deleted "${skill.metadata.name}"`)
+          addNotification('success', t('skillDetail.deletedSuccess', { name: skill.metadata.name }))
           setSelectedSkillId(null)
           setShowDeleteConfirm(false)
         },
         onError: (err) => addNotification('error', err.message),
       },
     )
-  }, [skill, removeLocal, addNotification, setSelectedSkillId])
+  }, [skill, deleteSkill, addNotification, setSelectedSkillId, t])
 
   const handleCheckUpdate = useCallback(() => {
     if (!skill) return
     checkUpdate.mutate(skill.id, {
       onSuccess: (result) => {
-        if (result) {
-          addNotification('info', 'Update available')
+        if (result.status === 'hasUpdate') {
+          addNotification('info', t('skillDetail.updateAvailable'))
+        } else if (result.status === 'upToDate') {
+          addNotification('info', t('skillDetail.updateUpToDate'))
+        } else if (result.status === 'unknownHash') {
+          addNotification(
+            'info',
+            result.message ?? t('skillDetail.updateUnknownHashFallback'),
+          )
         } else {
-          addNotification('info', 'Already up to date')
+          addNotification('info', result.message ?? t('skillDetail.updateNotSupported'))
         }
       },
       onError: (err) => addNotification('error', err.message),
     })
-  }, [skill, checkUpdate, addNotification])
+  }, [skill, checkUpdate, addNotification, t])
 
   const handleUpdate = useCallback(() => {
     if (!skill) return
     updateSkill.mutate(skill.id, {
-      onSuccess: () => addNotification('success', `Updated "${skill.metadata.name}"`),
+      onSuccess: (result) =>
+        addNotification(
+          'success',
+          result.status === 'updated'
+            ? t('skillDetail.updatedSuccess', { name: skill.metadata.name })
+            : t('skillDetail.updateProcessed', { name: skill.metadata.name }),
+        ),
       onError: (err) => addNotification('error', err.message),
     })
-  }, [skill, updateSkill, addNotification])
+  }, [skill, updateSkill, addNotification, t])
 
   const handleAssign = useCallback(
     (agentType: AgentType) => {
@@ -158,12 +183,12 @@ export default function SkillDetail() {
       assignSkill.mutate(
         { skillPath: skill.canonicalPath, agentType },
         {
-          onSuccess: () => addNotification('success', `Assigned to ${agentType}`),
+          onSuccess: () => addNotification('success', t('skillDetail.assignedToAgent', { agentType })),
           onError: (err) => addNotification('error', err.message),
         },
       )
     },
-    [skill, assignSkill, addNotification],
+    [skill, assignSkill, addNotification, t],
   )
 
   const handleUnassign = useCallback(
@@ -172,27 +197,35 @@ export default function SkillDetail() {
       unassignSkill.mutate(
         { skillPath: skill.canonicalPath, agentType },
         {
-          onSuccess: () => addNotification('success', `Unassigned from ${agentType}`),
+          onSuccess: () => addNotification('success', t('skillDetail.unassignedFromAgent', { agentType })),
           onError: (err) => addNotification('error', err.message),
         },
       )
     },
-    [skill, unassignSkill, addNotification],
+    [skill, unassignSkill, addNotification, t],
   )
 
   const handleRemoveLocal = useCallback(
     (agentType: AgentType) => {
-      if (!confirm(`Remove local copy from ${agentType}?`)) return
       if (!skill) return
-      removeLocal.mutate(
-        { skillId: skill.id },
+      if (
+        !confirm(
+          t('skillDetail.removeLocalConfirm', { agentType }),
+        )
+      ) {
+        return
+      }
+
+      removeLocalInstallation.mutate(
+        { skillId: skill.id, agentType },
         {
-          onSuccess: () => addNotification('success', `Removed local copy from ${agentType}`),
+          onSuccess: () =>
+            addNotification('success', t('skillDetail.removeLocalSuccess', { agentType })),
           onError: (err) => addNotification('error', err.message),
         },
       )
     },
-    [skill, removeLocal, addNotification],
+    [skill, removeLocalInstallation, addNotification, t],
   )
 
   if (!skill) {
@@ -200,7 +233,7 @@ export default function SkillDetail() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <FileText className="mx-auto h-12 w-12 text-text-muted/50" />
-          <p className="mt-3 text-sm text-text-muted">Select a skill to view details</p>
+          <p className="mt-3 text-sm text-text-muted">{t('skillDetail.emptyState')}</p>
         </div>
       </div>
     )
@@ -219,12 +252,12 @@ export default function SkillDetail() {
 
       {/* Action Bar */}
       <div className="flex items-center gap-1 border-b border-border px-6 py-2">
-        <ActionButton icon={<ClipboardCopy className="h-3.5 w-3.5" />} label="Copy Path" onClick={handleCopyPath} />
-        <ActionButton icon={<FolderOpen className="h-3.5 w-3.5" />} label="Reveal in Finder" onClick={handleRevealInFinder} />
-        <ActionButton icon={<Pencil className="h-3.5 w-3.5" />} label="Edit" onClick={() => setEditingSkillId(skill.id)} />
+        <ActionButton icon={<ClipboardCopy className="h-3.5 w-3.5" />} label={t('skillDetail.copyPath')} onClick={handleCopyPath} />
+        <ActionButton icon={<FolderOpen className="h-3.5 w-3.5" />} label={t('skillDetail.revealInFinder')} onClick={handleRevealInFinder} />
+        <ActionButton icon={<Pencil className="h-3.5 w-3.5" />} label={t('skillDetail.edit')} onClick={() => setEditingSkillId(skill.id)} />
         <ActionButton
           icon={<Trash2 className="h-3.5 w-3.5" />}
-          label="Delete"
+          label={t('skillDetail.delete')}
           variant="danger"
           onClick={() => setShowDeleteConfirm(true)}
         />
@@ -236,7 +269,7 @@ export default function SkillDetail() {
           {skill.hasUpdate && (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning">
               <ArrowUpCircle className="h-3.5 w-3.5" />
-              Update Available
+              {t('skillDetail.updateAvailable')}
             </span>
           )}
           {skill.hasUpdate && (
@@ -250,7 +283,7 @@ export default function SkillDetail() {
               ) : (
                 <ArrowUpCircle className="h-3.5 w-3.5" />
               )}
-              Update
+              {t('skillDetail.update')}
             </button>
           )}
           <button
@@ -263,7 +296,7 @@ export default function SkillDetail() {
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}
-            Check for Update
+            {t('skillDetail.checkUpdate')}
           </button>
         </div>
       )}
@@ -271,12 +304,20 @@ export default function SkillDetail() {
       {/* Agent Assignment */}
       <div className="border-b border-border px-6 py-4">
         <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-text-secondary">
-          Agent Assignment
+          {t('skillDetail.agentAssignment')}
         </h3>
         <div className="space-y-2">
           {agents?.map((agent: Agent) => {
             const { status, isInherited } = getAgentStatusForSkill(skill, agent.type)
             const presentation = getAgentStatePresentation(status)
+            const statusLabel =
+              status === 'linked'
+                ? t('skillDetail.linked')
+                : status === 'installed'
+                  ? t('skillDetail.installed')
+                  : status === 'builtin'
+                    ? t('skillDetail.builtin')
+                    : t('skillDetail.notAssigned')
 
             return (
               <div key={agent.type} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-bg-hover transition-colors">
@@ -285,10 +326,10 @@ export default function SkillDetail() {
                     {agent.displayName}
                   </span>
                   <span className={cn('inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium', presentation.color, presentation.bgColor)}>
-                    {presentation.label}
+                    {statusLabel}
                   </span>
                   {isInherited && (
-                    <span className="text-[10px] text-text-muted">(inherited)</span>
+                    <span className="text-[10px] text-text-muted">({t('skillDetail.inherited')})</span>
                   )}
                 </div>
                 <div className="flex gap-1.5">
@@ -298,7 +339,7 @@ export default function SkillDetail() {
                       disabled={assignSkill.isPending}
                       className="rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
                     >
-                      Assign
+                      {t('skillDetail.assign')}
                     </button>
                   )}
                   {!isInherited && status === 'linked' && (
@@ -307,16 +348,16 @@ export default function SkillDetail() {
                       disabled={unassignSkill.isPending}
                       className="rounded-md px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:bg-bg-hover disabled:opacity-50 transition-colors"
                     >
-                      Unassign
+                      {t('skillDetail.unassign')}
                     </button>
                   )}
                   {!isInherited && status === 'installed' && (
                     <button
                       onClick={() => handleRemoveLocal(agent.type)}
-                      disabled={removeLocal.isPending}
+                      disabled={removeLocalInstallation.isPending}
                       className="rounded-md px-2.5 py-1 text-[11px] font-medium text-error hover:bg-error/15 disabled:opacity-50 transition-colors"
                     >
-                      Remove Local
+                      {t('skillDetail.removeLocal')}
                     </button>
                   )}
                 </div>
@@ -330,7 +371,7 @@ export default function SkillDetail() {
       {skill.markdownBody && (
         <div className="flex-1 px-6 py-4">
           <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-text-secondary">
-            Documentation
+            {t('skillDetail.documentation')}
           </h3>
           <div className="markdown-body">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{skill.markdownBody}</ReactMarkdown>
@@ -342,23 +383,23 @@ export default function SkillDetail() {
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-96 rounded-xl bg-bg-secondary border border-border p-6 shadow-xl">
-            <h3 className="text-base font-semibold text-text-primary">Delete Skill</h3>
+            <h3 className="text-base font-semibold text-text-primary">{t('skillDetail.deleteTitle')}</h3>
             <p className="mt-2 text-sm text-text-secondary">
-              Are you sure you want to delete "{skill.metadata.name}"? This action cannot be undone.
+              {t('skillDetail.deleteConfirm', { name: skill.metadata.name })}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
-                disabled={removeLocal.isPending}
+                disabled={deleteSkill.isPending}
                 className="rounded-lg bg-error px-4 py-2 text-sm font-medium text-white hover:bg-error/80 disabled:opacity-50 transition-colors"
               >
-                {removeLocal.isPending ? 'Deleting...' : 'Delete'}
+                {deleteSkill.isPending ? t('skillDetail.deleting') : t('skillDetail.delete')}
               </button>
             </div>
           </div>

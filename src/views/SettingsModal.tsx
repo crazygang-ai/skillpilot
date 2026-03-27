@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Info, Globe, Shield } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import AboutPanel from '@/components/settings/AboutPanel'
 import LanguageSettings from '@/components/settings/LanguageSettings'
@@ -7,21 +8,21 @@ import ProxySettingsPanel from '@/components/settings/ProxySettingsPanel'
 
 type SettingsTab = 'about' | 'language' | 'proxy'
 
-const tabs: { id: SettingsTab; label: string; icon: typeof Info }[] = [
-  { id: 'about', label: 'About', icon: Info },
-  { id: 'language', label: 'Language', icon: Globe },
-  { id: 'proxy', label: 'Proxy', icon: Shield },
-]
-
 export default function SettingsModal() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>('about')
+  const tabs: { id: SettingsTab; label: string; icon: typeof Info }[] = [
+    { id: 'about', label: t('settings.about'), icon: Info },
+    { id: 'language', label: t('settings.language'), icon: Globe },
+    { id: 'proxy', label: t('settings.proxy'), icon: Shield },
+  ]
 
   return (
     <div className="flex h-full">
       {/* Left sidebar nav */}
       <div className="w-48 shrink-0 border-r border-border bg-bg-secondary p-4">
         <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">
-          Settings
+          {t('settings.title')}
         </h2>
         <nav className="space-y-1">
           {tabs.map(({ id, label, icon: Icon }) => (
@@ -47,19 +48,19 @@ export default function SettingsModal() {
         <div className="max-w-xl">
           {activeTab === 'about' && (
             <>
-              <h3 className="text-lg font-semibold text-text-primary mb-6">About</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-6">{t('settings.about')}</h3>
               <AboutPanel />
             </>
           )}
           {activeTab === 'language' && (
             <>
-              <h3 className="text-lg font-semibold text-text-primary mb-6">Language</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-6">{t('settings.language')}</h3>
               <LanguageSettings />
             </>
           )}
           {activeTab === 'proxy' && (
             <>
-              <h3 className="text-lg font-semibold text-text-primary mb-6">Proxy</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-6">{t('settings.proxy')}</h3>
               <ProxySettingsPanel />
             </>
           )}

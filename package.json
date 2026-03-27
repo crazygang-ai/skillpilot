@@ -27,6 +27,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
     "chokidar": "^4.0.3",
+    "dompurify": "^3.3.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
     "https-proxy-agent": "^8.0.0",
@@ -56,6 +57,7 @@
     "concurrently": "^9.2.1",
     "electron": "41.0.2",
     "electron-builder": "26.0.12",
+    "jsdom": "^29.0.1",
     "playwright": "^1.58.2",
     "postcss": "^8.5.8",
     "tailwind-merge": "^3.5.0",

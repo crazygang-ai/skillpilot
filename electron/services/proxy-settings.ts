@@ -1,9 +1,11 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { ProxySettings } from '../../shared/types'
+import { ProxySettings, SetProxySettingsInput } from '../../shared/types'
+import * as keychainService from './keychain-service'
 
 const SETTINGS_PATH = path.join(os.homedir(), '.agents', '.skillpilot-settings.json')
+const PROXY_PASSWORD_KEY = 'proxy-password'
 
 interface SettingsFile {
   proxy?: ProxySettings
@@ -41,8 +43,21 @@ export function getProxySettings(): ProxySettings {
   }
 }
 
-export function setProxySettings(proxy: ProxySettings): void {
+async function invalidateNetworkSessionCache(): Promise<void> {
+  const networkProvider = await import('./network-session-provider.js')
+  networkProvider.invalidateCache()
+}
+
+export async function setProxySettings(input: SetProxySettingsInput): Promise<void> {
   const settings = readSettings()
-  settings.proxy = proxy
+  settings.proxy = input.proxy
   writeSettings(settings)
+
+  if (!input.proxy.isEnabled || input.password === '') {
+    await keychainService.deletePassword(PROXY_PASSWORD_KEY)
+  } else if (input.password !== undefined) {
+    await keychainService.setPassword(PROXY_PASSWORD_KEY, input.password)
+  }
+
+  await invalidateNetworkSessionCache()
 }

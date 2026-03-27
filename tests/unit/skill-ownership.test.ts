@@ -8,6 +8,8 @@ function makeSkill(overrides: {
 }): Skill {
   return {
     id: 'test',
+    storageName: 'test',
+    directoryName: 'test',
     canonicalPath: '/test',
     metadata: { name: 'test', description: 'test' },
     markdownBody: '',
