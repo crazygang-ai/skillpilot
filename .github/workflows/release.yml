@@ -43,9 +43,10 @@ jobs:
           fi
           pnpm build:mac
 
-      - name: Upload release artifacts
+      - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.ref_name }}
           files: |
             release/*.dmg
             release/*.zip
