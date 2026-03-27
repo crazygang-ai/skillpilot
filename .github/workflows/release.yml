@@ -24,19 +24,21 @@ jobs:
       - name: Run tests
         run: pnpm test
 
-      - name: Build macOS app with signing secrets
-        if: ${{ secrets.CSC_LINK != '' }}
+      - name: Build macOS app
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm build:mac
-
-      - name: Build macOS app without signing secrets
-        if: ${{ secrets.CSC_LINK == '' }}
-        run: pnpm build:mac
+        run: |
+          if [ -z "${CSC_LINK:-}" ]; then
+            echo "Signing secrets not configured; building unsigned release artifacts."
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          else
+            echo "Signing secrets detected; building signed release artifacts."
+          fi
+          pnpm build:mac
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
