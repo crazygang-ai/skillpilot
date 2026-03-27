@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import path from 'path'
 
-// update-checker exports checkAppUpdate and checkSkillUpdate, but both
-// require electron (app.getVersion) and network/git. We test the
-// version comparison logic by exercising it indirectly through a
-// pure reimplementation of the private compareVersions function.
-// This also tests the getSkillFolderPath logic.
+// update-checker relies on git/network I/O, so we keep a narrow pure-logic
+// regression suite around its private helpers instead of importing the module.
 
 function compareVersions(a: string, b: string): number {
   const pa = a.split('.').map(Number)
@@ -24,7 +22,14 @@ function getSkillFolderPath(repoDir: string, skillPath: string): string {
   const parts = skillPath.split('/')
   parts.pop() // Remove SKILL.md
   const relativePath = parts.join('/')
-  return relativePath ? `${repoDir}/${relativePath}` : repoDir
+  const resolved = relativePath
+    ? path.resolve(path.join(repoDir, relativePath))
+    : path.resolve(repoDir)
+  const resolvedRepo = path.resolve(repoDir)
+  if (!resolved.startsWith(resolvedRepo + path.sep) && resolved !== resolvedRepo) {
+    throw new Error(`Skill path escapes repo directory: ${skillPath}`)
+  }
+  return resolved
 }
 
 describe('UpdateChecker (pure logic)', () => {
@@ -65,6 +70,11 @@ describe('UpdateChecker (pure logic)', () => {
     it('handles deep nesting', () => {
       expect(getSkillFolderPath('/tmp/repo', '.claude/skills/deep/skill/SKILL.md'))
         .toBe('/tmp/repo/.claude/skills/deep/skill')
+    })
+
+    it('rejects paths that escape the repository root', () => {
+      expect(() => getSkillFolderPath('/tmp/repo', '../outside/SKILL.md'))
+        .toThrow('Skill path escapes repo directory')
     })
   })
 })

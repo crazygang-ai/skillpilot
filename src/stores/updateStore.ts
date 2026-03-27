@@ -1,24 +1,73 @@
 import { create } from 'zustand'
+import type { AppUpdateState } from '../../shared/types'
 
-interface UpdateState {
-  currentVersion: string
+interface UpdateStoreState extends AppUpdateState {
   initialized: boolean
   appUpdatesSupported: boolean
+  hydrate: (state: AppUpdateState) => void
   init: () => Promise<void>
+  checkForUpdates: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  quitAndInstall: () => Promise<void>
 }
 
-export const useUpdateStore = create<UpdateState>((set, get) => ({
+const DEFAULT_UPDATE_STATE: AppUpdateState = {
   currentVersion: '0.1.0',
+  status: 'unsupported',
+  isSupported: false,
+}
+
+export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
+  ...DEFAULT_UPDATE_STATE,
   initialized: false,
   appUpdatesSupported: false,
+  hydrate: (state) => {
+    set({
+      ...state,
+      initialized: true,
+      appUpdatesSupported: state.isSupported,
+    })
+  },
 
   init: async () => {
     if (get().initialized) return
     try {
-      const version = await window.electronAPI.updater.getCurrentVersion()
-      set({ currentVersion: version, initialized: true })
+      const state = await window.electronAPI.updater.getState()
+      get().hydrate(state)
     } catch {
-      set({ initialized: true })
+      try {
+        const currentVersion = await window.electronAPI.updater.getCurrentVersion()
+        set({
+          currentVersion,
+          initialized: true,
+        })
+      } catch {
+        set({ initialized: true })
+      }
+    }
+  },
+
+  checkForUpdates: async () => {
+    try {
+      await window.electronAPI.updater.checkForUpdates()
+    } catch {
+      // Main process stateChanged events drive the user-visible error state.
+    }
+  },
+
+  downloadUpdate: async () => {
+    try {
+      await window.electronAPI.updater.downloadUpdate()
+    } catch {
+      // Main process stateChanged events drive the user-visible error state.
+    }
+  },
+
+  quitAndInstall: async () => {
+    try {
+      await window.electronAPI.updater.quitAndInstall()
+    } catch {
+      // The app may terminate before a response returns, so callers should not rely on resolution.
     }
   },
 }))

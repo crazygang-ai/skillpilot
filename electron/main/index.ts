@@ -2,12 +2,15 @@ import { app, BrowserWindow, shell } from 'electron'
 import path from 'path'
 import log from 'electron-log'
 import { SkillManager } from '../services/skill-manager'
+import { AppUpdater } from '../services/app-updater'
 import { setupIpcHandlers } from '../ipc/handlers'
+import { applyProxySettingsToElectronSession } from '../services/proxy-settings'
 
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'test'
 
 let mainWindow: BrowserWindow | null = null
 const skillManager = new SkillManager()
+const appUpdater = new AppUpdater()
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -65,7 +68,8 @@ if (!gotTheLock) {
 
 app.whenReady().then(async () => {
   log.info('SkillPilot starting...')
-  setupIpcHandlers(skillManager)
+  await applyProxySettingsToElectronSession()
+  setupIpcHandlers(skillManager, appUpdater)
   createWindow()
 
   try {

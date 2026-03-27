@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { session, type ProxyConfig } from 'electron'
 import { ProxySettings, SetProxySettingsInput } from '../../shared/types'
 import * as keychainService from './keychain-service'
 
@@ -43,21 +44,45 @@ export function getProxySettings(): ProxySettings {
   }
 }
 
+function toElectronProxyConfig(proxy: ProxySettings): ProxyConfig {
+  if (!proxy.isEnabled || !proxy.host || !proxy.port) {
+    return { mode: 'direct' }
+  }
+
+  const proxyRules = proxy.type === 'socks5'
+    ? `socks5://${proxy.host}:${proxy.port}`
+    : `http=${proxy.host}:${proxy.port};https=${proxy.host}:${proxy.port}`
+
+  const proxyBypassRules = proxy.bypassList
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .join(',')
+
+  return proxyBypassRules
+    ? { proxyRules, proxyBypassRules }
+    : { proxyRules }
+}
+
+export async function applyProxySettingsToElectronSession(): Promise<void> {
+  await session.defaultSession.setProxy(toElectronProxyConfig(getProxySettings()))
+}
+
 async function invalidateNetworkSessionCache(): Promise<void> {
   const networkProvider = await import('./network-session-provider.js')
   networkProvider.invalidateCache()
 }
 
 export async function setProxySettings(input: SetProxySettingsInput): Promise<void> {
-  const settings = readSettings()
-  settings.proxy = input.proxy
-  writeSettings(settings)
-
   if (!input.proxy.isEnabled || input.password === '') {
     await keychainService.deletePassword(PROXY_PASSWORD_KEY)
   } else if (input.password !== undefined) {
     await keychainService.setPassword(PROXY_PASSWORD_KEY, input.password)
   }
 
+  const settings = readSettings()
+  settings.proxy = input.proxy
+  writeSettings(settings)
+
   await invalidateNetworkSessionCache()
+  await applyProxySettingsToElectronSession()
 }

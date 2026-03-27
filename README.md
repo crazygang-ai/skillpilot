@@ -52,6 +52,8 @@ Download the latest `.dmg` or `.zip` from [GitHub Releases](https://github.com/C
    ```
    Or: Right-click the app → Open → click "Open" in the dialog.
 
+Automatic in-app updates are only available in packaged release builds. New versions are published to GitHub Releases as drafts first; the app can discover them only after the draft release is manually published.
+
 ### Build from Source
 
 Requires Node.js 20+ and pnpm.
@@ -126,6 +128,8 @@ pnpm typecheck        # Type-check renderer + main process
 | Problem | Solution |
 |---------|----------|
 | macOS blocks the app on first launch | Run `xattr -cr /Applications/SkillPilot.app` or right-click → Open → click "Open" |
+| App update says no new version is available | GitHub Releases drafts are ignored until they are manually published. |
+| App updates fail behind an authenticated proxy | SkillPilot syncs proxy rules into Electron, but authenticated app updates may still rely on system proxy auth or require manual download from Releases. |
 | Agent not detected | Ensure the agent CLI is installed and available in `$PATH` |
 | Skills not syncing after CLI changes | Click the refresh button in the sidebar, or check that the skills directory exists |
 | GitHub imports fail behind a proxy | Configure proxy in Settings → Proxy. Proxy passwords are stored in the macOS Keychain. |

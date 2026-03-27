@@ -67,7 +67,16 @@ export const electronAPI = {
 
   // Updater
   updater: {
+    getState: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER.GET_STATE),
     getCurrentVersion: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER.GET_VERSION),
+    checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER.CHECK_FOR_UPDATES),
+    downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER.DOWNLOAD_UPDATE),
+    quitAndInstall: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATER.QUIT_AND_INSTALL),
+    onStateChanged: (callback: (state: unknown) => void) => {
+      const handler = (_event: unknown, state: unknown) => callback(state)
+      ipcRenderer.on(IPC_CHANNELS.UPDATER.ON_STATE_CHANGED, handler)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATER.ON_STATE_CHANGED, handler)
+    },
   },
 
   // Watcher

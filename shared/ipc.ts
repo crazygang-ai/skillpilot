@@ -35,7 +35,12 @@ export const IPC_CHANNELS = {
     SET_PROXY: 'settings:setProxy',
   },
   UPDATER: {
+    GET_STATE: 'updater:getState',
     GET_VERSION: 'updater:getCurrentVersion',
+    CHECK_FOR_UPDATES: 'updater:checkForUpdates',
+    DOWNLOAD_UPDATE: 'updater:downloadUpdate',
+    QUIT_AND_INSTALL: 'updater:quitAndInstall',
+    ON_STATE_CHANGED: 'updater:onStateChanged',
   },
   WATCHER: {
     ON_CHANGE: 'watcher:onChange',

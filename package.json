@@ -1,14 +1,14 @@
 {
   "name": "skillpilot",
   "productName": "SkillPilot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Unified AI agent skill manager for macOS",
   "main": "dist-electron/electron/main/index.js",
   "author": "SkillPilot Contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/user/skillpilot.git"
+    "url": "https://github.com/CrazyGang97/skillpilot.git"
   },
   "packageManager": "pnpm@10.32.1",
   "scripts": {
@@ -44,6 +44,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.2.1",
     "@types/js-yaml": "^4.0.9",
@@ -86,9 +87,12 @@
       "dist-electron/**/*",
       "resources/**/*"
     ],
+    "afterSign": "build/notarize.js",
     "publish": [
       {
-        "provider": "github"
+        "provider": "github",
+        "owner": "CrazyGang97",
+        "repo": "skillpilot"
       }
     ],
     "mac": {

@@ -65,10 +65,18 @@ describe('proxy settings flow', () => {
     const setPassword = vi.fn().mockResolvedValue(undefined)
     const deletePassword = vi.fn().mockResolvedValue(undefined)
     const invalidateCache = vi.fn()
+    const setProxy = vi.fn().mockResolvedValue(undefined)
 
     vi.doMock('os', () => ({
       default: { homedir: () => TEST_HOME },
       homedir: () => TEST_HOME,
+    }))
+    vi.doMock('electron', () => ({
+      session: {
+        defaultSession: {
+          setProxy,
+        },
+      },
     }))
     vi.doMock('../../electron/services/keychain-service', () => ({
       setPassword,
@@ -97,16 +105,28 @@ describe('proxy settings flow', () => {
     expect(setPassword).toHaveBeenCalledWith('proxy-password', 'super-secret')
     expect(deletePassword).not.toHaveBeenCalled()
     expect(invalidateCache).toHaveBeenCalledTimes(1)
+    expect(setProxy).toHaveBeenCalledWith({
+      proxyRules: 'http=proxy.example.com:3128;https=proxy.example.com:3128',
+      proxyBypassRules: 'localhost,*.local',
+    })
   })
 
   it('clears stored proxy password when password is emptied or proxy is disabled', async () => {
     const setPassword = vi.fn().mockResolvedValue(undefined)
     const deletePassword = vi.fn().mockResolvedValue(undefined)
     const invalidateCache = vi.fn()
+    const setProxy = vi.fn().mockResolvedValue(undefined)
 
     vi.doMock('os', () => ({
       default: { homedir: () => TEST_HOME },
       homedir: () => TEST_HOME,
+    }))
+    vi.doMock('electron', () => ({
+      session: {
+        defaultSession: {
+          setProxy,
+        },
+      },
     }))
     vi.doMock('../../electron/services/keychain-service', () => ({
       setPassword,
@@ -130,6 +150,43 @@ describe('proxy settings flow', () => {
     expect(setPassword).not.toHaveBeenCalled()
     expect(deletePassword).toHaveBeenCalledWith('proxy-password')
     expect(invalidateCache).toHaveBeenCalledTimes(1)
+    expect(setProxy).toHaveBeenCalledWith({ mode: 'direct' })
+  })
+
+  it('replays the persisted proxy configuration into the Electron session on startup', async () => {
+    const setProxy = vi.fn().mockResolvedValue(undefined)
+
+    vi.doMock('os', () => ({
+      default: { homedir: () => TEST_HOME },
+      homedir: () => TEST_HOME,
+    }))
+    vi.doMock('electron', () => ({
+      session: {
+        defaultSession: {
+          setProxy,
+        },
+      },
+    }))
+    vi.doMock('../../electron/services/keychain-service', () => ({
+      setPassword: vi.fn().mockResolvedValue(undefined),
+      deletePassword: vi.fn().mockResolvedValue(undefined),
+      getPassword: vi.fn(),
+    }))
+    vi.doMock('../../electron/services/network-session-provider', () => ({
+      invalidateCache: vi.fn(),
+    }))
+
+    const settingsPath = path.join(TEST_HOME, '.agents', '.skillpilot-settings.json')
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
+    fs.writeFileSync(settingsPath, JSON.stringify({ proxy: createProxyConfig() }, null, 2))
+
+    const { applyProxySettingsToElectronSession } = await import('../../electron/services/proxy-settings')
+    await applyProxySettingsToElectronSession()
+
+    expect(setProxy).toHaveBeenCalledWith({
+      proxyRules: 'http=proxy.example.com:3128;https=proxy.example.com:3128',
+      proxyBypassRules: 'localhost,*.local',
+    })
   })
 
   it('propagates Keychain failures instead of silently succeeding', async () => {
@@ -157,6 +214,8 @@ describe('proxy settings flow', () => {
       }),
     ).rejects.toThrow('Keychain unavailable')
 
+    const settingsPath = path.join(TEST_HOME, '.agents', '.skillpilot-settings.json')
+    expect(fs.existsSync(settingsPath)).toBe(false)
     expect(invalidateCache).not.toHaveBeenCalled()
   })
 

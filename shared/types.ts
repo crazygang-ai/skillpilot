@@ -182,6 +182,7 @@ export interface SetProxySettingsInput {
 
 export type AppUpdateStatus =
   | 'idle'
+  | 'unsupported'
   | 'checking'
   | 'available'
   | 'not-available'
@@ -199,6 +200,16 @@ export interface AppUpdateProgress {
   bytesPerSecond: number
   transferred: number
   total: number
+}
+
+export interface AppUpdateState {
+  currentVersion: string
+  status: AppUpdateStatus
+  isSupported: boolean
+  info?: AppUpdateInfo
+  progress?: AppUpdateProgress
+  errorMessage?: string
+  lastCheckedAt?: string
 }
 
 // ---- Views ----

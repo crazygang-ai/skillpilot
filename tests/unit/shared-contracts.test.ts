@@ -59,6 +59,25 @@ async function loadHandlersContract() {
     updateSkill: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
   }
+  const appUpdater = {
+    getState: vi.fn().mockReturnValue({
+      currentVersion: '0.1.1',
+      status: 'idle',
+      isSupported: true,
+    }),
+    checkForUpdates: vi.fn().mockResolvedValue({
+      currentVersion: '0.1.1',
+      status: 'checking',
+      isSupported: true,
+    }),
+    downloadUpdate: vi.fn().mockResolvedValue({
+      currentVersion: '0.1.1',
+      status: 'downloading',
+      isSupported: true,
+    }),
+    quitAndInstall: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  }
 
   vi.doMock('electron', () => ({
     ipcMain: {
@@ -95,9 +114,10 @@ async function loadHandlersContract() {
   }))
 
   const { setupIpcHandlers } = await import('../../electron/ipc/handlers')
-  setupIpcHandlers(skillManager as never)
+  setupIpcHandlers(skillManager as never, appUpdater as never)
 
   return {
+    appUpdater,
     handlers,
     setProxySettings,
     skillManager,
@@ -130,7 +150,14 @@ describe('shared contracts', () => {
   })
 
   it('does not keep placeholder updater channels around', () => {
-    expect(Object.keys(IPC_CHANNELS.UPDATER).sort()).toEqual(['GET_VERSION'])
+    expect(Object.keys(IPC_CHANNELS.UPDATER).sort()).toEqual([
+      'CHECK_FOR_UPDATES',
+      'DOWNLOAD_UPDATE',
+      'GET_STATE',
+      'GET_VERSION',
+      'ON_STATE_CHANGED',
+      'QUIT_AND_INSTALL',
+    ])
   })
 
   it('does not expose desktop export in preload', async () => {
@@ -145,7 +172,12 @@ describe('shared contracts', () => {
     const { exposedApi } = await loadPreloadContract()
 
     expect(Object.keys(exposedApi.updater as Record<string, unknown>).sort()).toEqual([
+      'checkForUpdates',
+      'downloadUpdate',
       'getCurrentVersion',
+      'getState',
+      'onStateChanged',
+      'quitAndInstall',
     ])
   })
 
@@ -229,6 +261,38 @@ describe('shared contracts', () => {
     ).rejects.toThrow()
 
     expect(skillManager.removeLocalInstallation).not.toHaveBeenCalled()
+  })
+
+  it('exposes app updater handlers through IPC', async () => {
+    const { appUpdater, handlers } = await loadHandlersContract()
+
+    const getState = handlers.get(IPC_CHANNELS.UPDATER.GET_STATE)
+    const checkForUpdates = handlers.get(IPC_CHANNELS.UPDATER.CHECK_FOR_UPDATES)
+    const downloadUpdate = handlers.get(IPC_CHANNELS.UPDATER.DOWNLOAD_UPDATE)
+    const quitAndInstall = handlers.get(IPC_CHANNELS.UPDATER.QUIT_AND_INSTALL)
+
+    await expect(getState?.({})).resolves.toEqual({
+      currentVersion: '0.1.1',
+      status: 'idle',
+      isSupported: true,
+    })
+    await expect(checkForUpdates?.({})).resolves.toEqual({
+      currentVersion: '0.1.1',
+      status: 'checking',
+      isSupported: true,
+    })
+    await expect(downloadUpdate?.({})).resolves.toEqual({
+      currentVersion: '0.1.1',
+      status: 'downloading',
+      isSupported: true,
+    })
+    await expect(quitAndInstall?.({})).resolves.toBeUndefined()
+
+    expect(appUpdater.getState).toHaveBeenCalledTimes(1)
+    expect(appUpdater.checkForUpdates).toHaveBeenCalledTimes(1)
+    expect(appUpdater.downloadUpdate).toHaveBeenCalledTimes(1)
+    expect(appUpdater.quitAndInstall).toHaveBeenCalledTimes(1)
+    expect(appUpdater.on).toHaveBeenCalledWith('stateChanged', expect.any(Function))
   })
 
   it('keeps sidebar translations aligned across locales', () => {

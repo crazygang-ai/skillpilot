@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAppStore } from '@/stores/appStore'
-import { useUpdateStore } from '@/stores/updateStore'
+import { useAppUpdateSync } from '@/hooks/useAppUpdateSync'
 import { useSkillWatcherSync } from '@/hooks/useSkillWatcherSync'
 import Sidebar from '@/components/layout/Sidebar'
 import Dashboard from '@/views/Dashboard'
@@ -19,11 +18,8 @@ const queryClient = new QueryClient({
   },
 })
 
-function UpdateInitializer() {
-  const init = useUpdateStore((s) => s.init)
-  useEffect(() => {
-    init()
-  }, [init])
+function AppUpdateInitializer() {
+  useAppUpdateSync()
   return null
 }
 
@@ -66,7 +62,7 @@ function App() {
         <MainContent />
       </div>
       <Notifications />
-      <UpdateInitializer />
+      <AppUpdateInitializer />
       <SkillWatcherInitializer />
     </QueryClientProvider>
   )

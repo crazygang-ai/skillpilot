@@ -1,5 +1,6 @@
 import { ipcMain, shell, dialog, BrowserWindow, app } from 'electron'
 import { SkillManager } from '../services/skill-manager'
+import { AppUpdater } from '../services/app-updater'
 import * as registryService from '../services/skill-registry-service'
 import * as contentFetcher from '../services/skill-content-fetcher'
 import { getProxySettings, setProxySettings } from '../services/proxy-settings'
@@ -17,7 +18,7 @@ import {
   validateSkillSaveArgs,
 } from './validators'
 
-export function setupIpcHandlers(skillManager: SkillManager): void {
+export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpdater): void {
   // ---- Agent ----
   ipcMain.handle(IPC_CHANNELS.AGENT.DETECT, async () => {
     return skillManager.agents
@@ -132,8 +133,24 @@ export function setupIpcHandlers(skillManager: SkillManager): void {
   })
 
   // ---- Updater ----
+  ipcMain.handle(IPC_CHANNELS.UPDATER.GET_STATE, async () => {
+    return appUpdater.getState()
+  })
+
   ipcMain.handle(IPC_CHANNELS.UPDATER.GET_VERSION, async () => {
     return app.getVersion()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.UPDATER.CHECK_FOR_UPDATES, async () => {
+    return appUpdater.checkForUpdates()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.UPDATER.DOWNLOAD_UPDATE, async () => {
+    return appUpdater.downloadUpdate()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.UPDATER.QUIT_AND_INSTALL, async () => {
+    return appUpdater.quitAndInstall()
   })
 
   // ---- Forward watcher events to renderer ----
@@ -141,6 +158,14 @@ export function setupIpcHandlers(skillManager: SkillManager): void {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.WATCHER.ON_CHANGE)
+      }
+    }
+  })
+
+  appUpdater.on('stateChanged', (state) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.UPDATER.ON_STATE_CHANGED, state)
       }
     }
   })

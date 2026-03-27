@@ -274,6 +274,17 @@ async function loadHandlerContract() {
     updateSkill: vi.fn().mockResolvedValue(updateResult),
     on: vi.fn(),
   }
+  const appUpdater = {
+    getState: vi.fn().mockReturnValue({
+      currentVersion: '0.1.1',
+      status: 'idle',
+      isSupported: true,
+    }),
+    checkForUpdates: vi.fn().mockResolvedValue(undefined),
+    downloadUpdate: vi.fn().mockResolvedValue(undefined),
+    quitAndInstall: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  }
 
   vi.doMock('electron', () => ({
     ipcMain: {
@@ -299,7 +310,7 @@ async function loadHandlerContract() {
   }))
 
   const { setupIpcHandlers } = await import('../../electron/ipc/handlers')
-  setupIpcHandlers(skillManager as never)
+  setupIpcHandlers(skillManager as never, appUpdater as never)
 
   return { handlers, skillManager, checkResult, updateResult }
 }
