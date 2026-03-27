@@ -95,16 +95,17 @@ function scanDirectory(
     if (skillMap.has(skillId)) {
       // Merge: add installation to existing skill
       const existing = skillMap.get(skillId)!
-      mergeInstallation(existing, storageName, canonicalPath, defaultScope)
+      mergeInstallation(existing, storageName, canonicalPath)
     } else {
       // New skill
       const installations = symlinkManager.findInstallations(storageName, canonicalPath)
+      const storageScope = resolveStorageScope(canonicalPath, defaultScope)
       skillMap.set(skillId, {
         id: skillId,
         storageName,
         directoryName,
         canonicalPath,
-        scope: installations.length > 1 ? { kind: 'sharedGlobal' } : defaultScope,
+        scope: storageScope,
         installations,
         lockEntry,
       })
@@ -112,22 +113,25 @@ function scanDirectory(
   }
 }
 
+function resolveStorageScope(canonicalPath: string, defaultScope: SkillScope): SkillScope {
+  const resolved = path.resolve(canonicalPath)
+  const sharedDir = path.resolve(SHARED_SKILLS_DIR)
+  if (resolved.startsWith(sharedDir + path.sep) || resolved === sharedDir) {
+    return { kind: 'sharedGlobal' }
+  }
+  return defaultScope
+}
+
 function mergeInstallation(
   skill: ScannedSkill,
   storageName: string,
   canonicalPath: string,
-  _scope: SkillScope,
 ): void {
   const existingPaths = new Set(skill.installations.map((installation) => installation.path))
   for (const installation of symlinkManager.findInstallations(storageName, canonicalPath)) {
     if (!existingPaths.has(installation.path)) {
       skill.installations.push(installation)
     }
-  }
-
-  // Promote scope to sharedGlobal if found in multiple locations
-  if (skill.scope.kind !== 'sharedGlobal') {
-    skill.scope = { kind: 'sharedGlobal' }
   }
 }
 

@@ -111,8 +111,12 @@ export function useCheckUpdate() {
 }
 
 export function useCheckAllUpdates() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => window.electronAPI.skills.checkAllUpdates(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skills'] })
+    },
   })
 }
 

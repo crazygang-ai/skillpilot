@@ -36,12 +36,16 @@ export type SkillScope =
 
 export type SkillAgentStatus = 'linked' | 'installed' | 'builtin'
 
+export type InheritedSource =
+  | { sourceKind: 'shared' }
+  | { sourceKind: 'agent'; agentType: AgentType }
+
 export interface SkillInstallation {
   agentType: AgentType
   path: string
   isSymlink: boolean
   isInherited: boolean
-  inheritedFrom?: AgentType
+  inheritedFrom?: InheritedSource
 }
 
 export interface SkillMetadata {

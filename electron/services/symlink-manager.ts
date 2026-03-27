@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { AgentType, SkillInstallation } from '../../shared/types'
+import { AgentType, SkillInstallation, InheritedSource } from '../../shared/types'
 import { AGENT_CONFIGS } from '../types/agent-config'
 import { SHARED_SKILLS_DIR } from '../utils/constants'
 
@@ -130,12 +130,16 @@ export function findInstallations(skillId: string, canonicalPath: string): Skill
       const resolved = resolveCanonical(skillPath)
       if (resolved !== canonicalPath) continue
 
+      const inheritedFrom: InheritedSource = readable.sourceKind === 'agent'
+        ? { sourceKind: 'agent', agentType: readable.agentType }
+        : { sourceKind: 'shared' }
+
       installations.push({
         agentType: config.type,
         path: skillPath,
         isSymlink: isSymlink(skillPath),
         isInherited: true,
-        inheritedFrom: readable.agentType,
+        inheritedFrom,
       })
       break // Only count first inherited source per agent
     }

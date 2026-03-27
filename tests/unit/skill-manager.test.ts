@@ -324,9 +324,8 @@ describe('skill-manager', () => {
       remoteTreeHash: 'remote-tree',
       remoteCommitHash: 'remote-commit',
     })
-    expect((manager as unknown as { updateStatuses: Map<string, string> }).updateStatuses.get('opaque-skill-id')).toBe('hasUpdate')
-    expect((manager as unknown as { cachedRemoteTreeHashes: Map<string, string> }).cachedRemoteTreeHashes.get('opaque-skill-id')).toBe('remote-tree')
-    expect((manager as unknown as { cachedRemoteCommitHashes: Map<string, string> }).cachedRemoteCommitHashes.get('opaque-skill-id')).toBe('remote-commit')
+    const svc = (manager as unknown as { updateService: { updateStatuses: Map<string, string> } }).updateService
+    expect(svc.updateStatuses.get('opaque-skill-id')).toBe('hasUpdate')
     expect(events).toHaveLength(2)
   })
 

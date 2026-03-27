@@ -35,9 +35,22 @@ export function read(): LockFile {
     cache = migrated
     return migrated
   } catch (error) {
-    console.warn('Failed to read lock file, recreating empty state:', error)
+    console.warn('Lock file corrupt, backing up and recovering:', error)
+    backupCorruptFile()
     cache = createEmpty()
     return cache
+  }
+}
+
+function backupCorruptFile(): void {
+  try {
+    if (!fs.existsSync(LOCK_FILE_PATH)) return
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backupPath = LOCK_FILE_PATH.replace('.json', `.corrupt-${timestamp}.json`)
+    fs.copyFileSync(LOCK_FILE_PATH, backupPath)
+    console.warn(`Corrupt lock file backed up to: ${backupPath}`)
+  } catch {
+    // backup is best-effort
   }
 }
 

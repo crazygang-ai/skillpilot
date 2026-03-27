@@ -21,6 +21,7 @@ import {
 export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpdater): void {
   // ---- Agent ----
   ipcMain.handle(IPC_CHANNELS.AGENT.DETECT, async () => {
+    await skillManager.refresh()
     return skillManager.agents
   })
 
@@ -153,13 +154,25 @@ export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpda
     return appUpdater.quitAndInstall()
   })
 
-  // ---- Forward watcher events to renderer ----
+  // ---- Forward events to renderer ----
   skillManager.on('watcherChanged', () => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.WATCHER.ON_CHANGE)
       }
     }
+  })
+
+  let stateChangedTimer: ReturnType<typeof setTimeout> | undefined
+  skillManager.on('stateChanged', () => {
+    if (stateChangedTimer) clearTimeout(stateChangedTimer)
+    stateChangedTimer = setTimeout(() => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send(IPC_CHANNELS.SKILL.ON_STATE_CHANGED)
+        }
+      }
+    }, 100)
   })
 
   appUpdater.on('stateChanged', (state) => {

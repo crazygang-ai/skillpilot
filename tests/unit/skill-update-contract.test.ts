@@ -364,9 +364,8 @@ describe('skill update contract', () => {
       remoteTreeHash: 'remote-tree',
       remoteCommitHash: 'remote-commit',
     })
-    expect((manager as unknown as { updateStatuses: Map<string, string> }).updateStatuses.get('opaque-skill-id')).toBe('hasUpdate')
-    expect((manager as unknown as { cachedRemoteTreeHashes: Map<string, string> }).cachedRemoteTreeHashes.get('opaque-skill-id')).toBe('remote-tree')
-    expect((manager as unknown as { cachedRemoteCommitHashes: Map<string, string> }).cachedRemoteCommitHashes.get('opaque-skill-id')).toBe('remote-commit')
+    const svc = (manager as unknown as { updateService: { updateStatuses: Map<string, string> } }).updateService
+    expect(svc.updateStatuses.get('opaque-skill-id')).toBe('hasUpdate')
     expect(events).toHaveLength(2)
   })
 
@@ -378,7 +377,8 @@ describe('skill update contract', () => {
     manager.skills = [createSkill()]
 
     await expect(manager.updateSkill('opaque-skill-id')).rejects.toThrow('clone failed')
-    expect((manager as unknown as { updateStatuses: Map<string, string> }).updateStatuses.get('opaque-skill-id')).toBe('error')
+    const svc = (manager as unknown as { updateService: { updateStatuses: Map<string, string> } }).updateService
+    expect(svc.updateStatuses.get('opaque-skill-id')).toBe('error')
   })
 
   it('repairs empty folder hashes by rebuilding the local tree hash and writing it back to lock', async () => {
@@ -457,7 +457,8 @@ describe('skill update contract', () => {
     })
     expect(result.message).toBeTruthy()
     expect(updateEntry).not.toHaveBeenCalled()
-    expect((manager as unknown as { updateStatuses: Map<string, string> }).updateStatuses.get('opaque-skill-id')).toBe('unknownHash')
+    const svc = (manager as unknown as { updateService: { updateStatuses: Map<string, string> } }).updateService
+    expect(svc.updateStatuses.get('opaque-skill-id')).toBe('unknownHash')
   })
 
   it('ipc handlers return structured results for update check and apply', async () => {
@@ -476,7 +477,7 @@ describe('skill update contract', () => {
     const { skillManager } = await loadHandlerContract()
 
     expect(skillManager.on).toHaveBeenCalledWith('watcherChanged', expect.any(Function))
-    expect(skillManager.on).not.toHaveBeenCalledWith('stateChanged', expect.any(Function))
+    expect(skillManager.on).toHaveBeenCalledWith('stateChanged', expect.any(Function))
   })
 
   it('useCheckUpdate invalidates skills after a successful mutation', async () => {
@@ -580,6 +581,8 @@ describe('skill update contract', () => {
     let watcherCallback: (() => void) | undefined
     const unsubscribe = vi.fn()
 
+    const stateUnsubscribe = vi.fn()
+
     Object.assign(window, {
       electronAPI: {
         watcher: {
@@ -591,6 +594,7 @@ describe('skill update contract', () => {
         skills: {
           checkUpdate: vi.fn(),
           updateSkill: vi.fn(),
+          onStateChanged: vi.fn(() => stateUnsubscribe),
         },
       },
     })
@@ -625,6 +629,7 @@ describe('skill update contract', () => {
       root.unmount()
     })
     expect(unsubscribe).toHaveBeenCalledTimes(1)
+    expect(stateUnsubscribe).toHaveBeenCalledTimes(1)
     container.remove()
   })
 })

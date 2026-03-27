@@ -15,11 +15,12 @@ export interface AgentConfig {
   /** Skills directory where symlinks are created */
   skillsDirectoryPath: string
   /** Other agents' skill directories this agent can read (soft inheritance) */
-  additionalReadableSkillsDirectories: Array<{
-    agentType: AgentType
-    path: string
-  }>
+  additionalReadableSkillsDirectories: ReadableSkillsDirectory[]
 }
+
+export type ReadableSkillsDirectory =
+  | { sourceKind: 'shared'; path: string }
+  | { sourceKind: 'agent'; agentType: AgentType; path: string }
 
 export const AGENT_CONFIGS: AgentConfig[] = [
   {
@@ -39,7 +40,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     configDirectoryPath: path.join(HOME, '.codex'),
     skillsDirectoryPath: path.join(HOME, '.codex', 'skills'),
     additionalReadableSkillsDirectories: [
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.agents', 'skills') },
+      { sourceKind: 'shared', path: path.join(HOME, '.agents', 'skills') },
     ],
   },
   {
@@ -50,7 +51,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     configDirectoryPath: path.join(HOME, '.gemini'),
     skillsDirectoryPath: path.join(HOME, '.gemini', 'skills'),
     additionalReadableSkillsDirectories: [
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.agents', 'skills') },
+      { sourceKind: 'shared', path: path.join(HOME, '.agents', 'skills') },
     ],
   },
   {
@@ -61,7 +62,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     configDirectoryPath: path.join(HOME, '.copilot'),
     skillsDirectoryPath: path.join(HOME, '.copilot', 'skills'),
     additionalReadableSkillsDirectories: [
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.claude', 'skills') },
+      { sourceKind: 'agent', agentType: AgentType.CLAUDE, path: path.join(HOME, '.claude', 'skills') },
     ],
   },
   {
@@ -72,8 +73,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     configDirectoryPath: path.join(HOME, '.config', 'opencode'),
     skillsDirectoryPath: path.join(HOME, '.config', 'opencode', 'skills'),
     additionalReadableSkillsDirectories: [
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.claude', 'skills') },
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.agents', 'skills') },
+      { sourceKind: 'agent', agentType: AgentType.CLAUDE, path: path.join(HOME, '.claude', 'skills') },
+      { sourceKind: 'shared', path: path.join(HOME, '.agents', 'skills') },
     ],
   },
   {
@@ -93,8 +94,8 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     configDirectoryPath: path.join(HOME, '.cursor'),
     skillsDirectoryPath: path.join(HOME, '.cursor', 'skills'),
     additionalReadableSkillsDirectories: [
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.claude', 'skills') },
-      { agentType: AgentType.CLAUDE, path: path.join(HOME, '.agents', 'skills') },
+      { sourceKind: 'agent', agentType: AgentType.CLAUDE, path: path.join(HOME, '.claude', 'skills') },
+      { sourceKind: 'shared', path: path.join(HOME, '.agents', 'skills') },
     ],
   },
   {

@@ -1,10 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-
-// Test the scanner's core logic by creating a realistic directory structure.
-// We test the deduplication and scope promotion logic at the filesystem level.
 
 const TEST_DIR = path.join(os.tmpdir(), 'skillpilot-test-scanner-' + Date.now())
 
@@ -75,29 +72,123 @@ describe('SkillScanner (filesystem logic)', () => {
     fs.writeFileSync(path.join(realDir, 'SKILL.md'), '---\nname: X\ndescription: Test\n---\n')
     fs.symlinkSync(realDir, path.join(linkDir, 'skill-x'), 'dir')
 
-    // Both locations resolve to the same canonical path
     const canonicalReal = fs.realpathSync(realDir)
     const canonicalLink = fs.realpathSync(path.join(linkDir, 'skill-x'))
     expect(canonicalReal).toBe(canonicalLink)
   })
+})
 
-  it('scope promotion: skill found in multiple locations promotes to sharedGlobal', () => {
-    // Simulate scope promotion logic
-    type Scope = { kind: 'sharedGlobal' } | { kind: 'agentLocal'; agentType: string }
+describe('SkillScanner (production scanAll)', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    fs.mkdirSync(TEST_DIR, { recursive: true })
+  })
 
-    function promoteScope(existingScope: Scope): Scope {
-      if (existingScope.kind !== 'sharedGlobal') {
-        return { kind: 'sharedGlobal' }
-      }
-      return existingScope
-    }
+  afterEach(() => {
+    fs.rmSync(TEST_DIR, { recursive: true, force: true })
+  })
 
-    const localScope: Scope = { kind: 'agentLocal', agentType: 'claude' }
-    const promoted = promoteScope(localScope)
-    expect(promoted.kind).toBe('sharedGlobal')
+  function mockScannerDeps(dirs: {
+    shared: string
+    agents: Array<{ type: string; skillsDir: string; readable: Array<{ sourceKind: string; agentType?: string; path: string }> }>
+  }) {
+    vi.doMock('../../electron/utils/constants', () => ({
+      SHARED_SKILLS_DIR: dirs.shared,
+    }))
+    vi.doMock('../../electron/types/agent-config', () => ({
+      AGENT_CONFIGS: dirs.agents.map(a => ({
+        type: a.type,
+        skillsDirectoryPath: a.skillsDir,
+        additionalReadableSkillsDirectories: a.readable,
+      })),
+    }))
+    vi.doMock('../../electron/services/lock-file-manager', () => ({
+      read: () => ({ version: 3, skills: {} }),
+    }))
+    vi.doMock('../../electron/services/symlink-manager', () => ({
+      resolveCanonical: (p: string) => {
+        try { return fs.realpathSync(p) } catch { return p }
+      },
+      findInstallations: (skillId: string, canonicalPath: string) => {
+        const installations: Array<Record<string, unknown>> = []
+        for (const agent of dirs.agents) {
+          const skillPath = path.join(agent.skillsDir, skillId)
+          if (!fs.existsSync(skillPath)) continue
+          try {
+            if (fs.realpathSync(skillPath) !== canonicalPath) continue
+          } catch { continue }
+          const isLink = fs.lstatSync(skillPath).isSymbolicLink()
+          installations.push({
+            agentType: agent.type,
+            path: skillPath,
+            isSymlink: isLink,
+            isInherited: isLink,
+          })
+        }
+        return installations
+      },
+    }))
+    vi.doMock('../../electron/services/skill-md-parser', () => ({
+      parseFile: () => ({
+        metadata: { name: 'Test Skill', description: 'test' },
+        markdownBody: '',
+      }),
+    }))
+    vi.doMock('../../electron/services/skill-identity', () => ({
+      resolveStableSkillId: (canonicalPath: string) => path.basename(canonicalPath),
+      resolveDirectoryName: (storageName: string) => storageName,
+    }))
+  }
 
-    // Already global stays global
-    const globalScope: Scope = { kind: 'sharedGlobal' }
-    expect(promoteScope(globalScope).kind).toBe('sharedGlobal')
+  it('agent-local skill inherited by another agent retains agentLocal scope', async () => {
+    const sharedDir = path.join(TEST_DIR, 'shared', 'skills')
+    const claudeDir = path.join(TEST_DIR, 'claude', 'skills')
+    const cursorDir = path.join(TEST_DIR, 'cursor', 'skills')
+
+    const skillDir = path.join(claudeDir, 'my-skill')
+    fs.mkdirSync(skillDir, { recursive: true })
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: My Skill\ndescription: test\n---\n')
+
+    fs.mkdirSync(cursorDir, { recursive: true })
+    fs.symlinkSync(skillDir, path.join(cursorDir, 'my-skill'), 'dir')
+
+    mockScannerDeps({
+      shared: sharedDir,
+      agents: [
+        { type: 'claude', skillsDir: claudeDir, readable: [] },
+        { type: 'cursor', skillsDir: cursorDir, readable: [
+          { sourceKind: 'agent', agentType: 'claude', path: claudeDir },
+        ] },
+      ],
+    })
+
+    const { scanAll } = await import('../../electron/services/skill-scanner')
+    const skills = await scanAll()
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].scope).toEqual({ kind: 'agentLocal', agentType: 'claude' })
+    expect(skills[0].installations.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('skill stored in shared directory gets sharedGlobal scope regardless of installation count', async () => {
+    const sharedDir = path.join(TEST_DIR, 'shared', 'skills')
+    const claudeDir = path.join(TEST_DIR, 'claude', 'skills')
+
+    const skillDir = path.join(sharedDir, 'global-skill')
+    fs.mkdirSync(skillDir, { recursive: true })
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: Global\ndescription: test\n---\n')
+
+    mockScannerDeps({
+      shared: sharedDir,
+      agents: [
+        { type: 'claude', skillsDir: claudeDir, readable: [] },
+      ],
+    })
+
+    const { scanAll } = await import('../../electron/services/skill-scanner')
+    const skills = await scanAll()
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].scope).toEqual({ kind: 'sharedGlobal' })
   })
 })

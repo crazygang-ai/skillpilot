@@ -30,6 +30,11 @@ export const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.SKILL.CHECK_ALL_UPDATES),
     updateSkill: (skillId: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.SKILL.UPDATE_SKILL, skillId),
+    onStateChanged: (callback: () => void) => {
+      const handler = () => callback()
+      ipcRenderer.on(IPC_CHANNELS.SKILL.ON_STATE_CHANGED, handler)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.SKILL.ON_STATE_CHANGED, handler)
+    },
   },
 
   // Registry
