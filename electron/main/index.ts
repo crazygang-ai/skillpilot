@@ -28,8 +28,7 @@ function createWindow(): void {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // sandbox requires bundling the preload (shared/ipc uses require)
-      sandbox: false,
+      sandbox: true,
     },
   })
 
