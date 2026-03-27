@@ -46,11 +46,10 @@ Download the latest `.dmg` or `.zip` from [GitHub Releases](https://github.com/C
 
 1. Download `SkillPilot-vX.Y.Z.dmg`
 2. Open the `.dmg` and drag `SkillPilot.app` to `/Applications/`
-3. On first launch, macOS may block unsigned apps. To open:
+3. On first launch, macOS will block unsigned apps. Run this once to allow it:
    ```bash
    xattr -cr /Applications/SkillPilot.app
    ```
-   Or: Right-click the app → Open → click "Open" in the dialog.
 
 Automatic in-app updates are only available in packaged release builds. New versions are published to GitHub Releases as drafts first; the app can discover them only after the draft release is manually published.
 

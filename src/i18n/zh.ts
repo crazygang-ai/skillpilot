@@ -21,7 +21,9 @@ const zh = {
     settings: '设置',
     allAgents: '全部助手',
     checkAllUpdates: '检查所有技能更新',
+    checkAllUpdatesDone: '更新检查完成',
     refresh: '刷新助手与技能',
+    refreshed: '助手与技能已刷新',
   },
 
   // Skill list

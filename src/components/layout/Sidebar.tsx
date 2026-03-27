@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/stores/appStore'
 import { useAgents } from '@/hooks/useAgents'
 import { useCheckAllUpdates } from '@/hooks/useSkills'
+import { useNotificationStore } from '@/stores/notificationStore'
 import { cn } from '@/lib/utils'
 import { AgentIcon } from '@/components/common/AgentIcon'
 import Tooltip from '@/components/common/Tooltip'
@@ -14,6 +15,20 @@ export default function Sidebar() {
   const { currentView, setCurrentView, selectedAgent, setSelectedAgent } = useAppStore()
   const { data: agents, isFetching, refetch } = useAgents()
   const checkAllUpdates = useCheckAllUpdates()
+  const addNotification = useNotificationStore((s) => s.addNotification)
+
+  const handleCheckAllUpdates = () => {
+    checkAllUpdates.mutate(undefined, {
+      onSuccess: () => addNotification('success', t('sidebar.checkAllUpdatesDone')),
+      onError: (err) => addNotification('error', err.message),
+    })
+  }
+
+  const handleRefresh = () => {
+    refetch()
+      .then(() => addNotification('success', t('sidebar.refreshed')))
+      .catch((err) => addNotification('error', err.message))
+  }
 
   const navItems: { view: ViewType; label: string; icon: React.ReactNode }[] = [
     { view: 'dashboard', label: t('sidebar.dashboard'), icon: <Monitor size={18} /> },
@@ -32,7 +47,7 @@ export default function Sidebar() {
           <div className="flex items-center gap-1">
             <Tooltip label={t('sidebar.checkAllUpdates')}>
               <button
-                onClick={() => checkAllUpdates.mutate()}
+                onClick={handleCheckAllUpdates}
                 disabled={checkAllUpdates.isPending}
                 className={cn(
                   'no-drag rounded-md p-1.5 text-text-muted transition-colors',
@@ -47,7 +62,7 @@ export default function Sidebar() {
             </Tooltip>
             <Tooltip label={t('sidebar.refresh')}>
               <button
-                onClick={() => refetch()}
+                onClick={handleRefresh}
                 disabled={isFetching}
                 className={cn(
                   'no-drag rounded-md p-1.5 text-text-muted transition-colors',

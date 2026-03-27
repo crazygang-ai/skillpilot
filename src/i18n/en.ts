@@ -21,7 +21,9 @@ const en = {
     settings: 'Settings',
     allAgents: 'All Agents',
     checkAllUpdates: 'Check all skill updates',
+    checkAllUpdatesDone: 'Update check complete',
     refresh: 'Refresh agents & skills',
+    refreshed: 'Agents & skills refreshed',
   },
 
   // Skill list
