@@ -1,7 +1,7 @@
 {
   "name": "skillpilot",
   "productName": "SkillPilot",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Unified AI agent skill manager for macOS",
   "main": "dist-electron/electron/main/index.js",
   "author": "SkillPilot Contributors",
