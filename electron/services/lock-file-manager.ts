@@ -1,4 +1,3 @@
-import fs from 'fs'
 import fsPromises from 'fs/promises'
 import path from 'path'
 import log from 'electron-log'
@@ -161,7 +160,12 @@ async function write(lockFile: LockFile): Promise<void> {
 
     const tmpPath = LOCK_FILE_PATH + '.tmp'
     await fsPromises.writeFile(tmpPath, JSON.stringify(lockFile, null, 2))
-    fs.renameSync(tmpPath, LOCK_FILE_PATH)
+    try {
+      await fsPromises.rename(tmpPath, LOCK_FILE_PATH)
+    } catch (renameErr) {
+      await fsPromises.rm(tmpPath, { force: true }).catch(() => {})
+      throw renameErr
+    }
     try {
       const newStat = await fsPromises.stat(LOCK_FILE_PATH)
       cachedMtimeMs = newStat.mtimeMs

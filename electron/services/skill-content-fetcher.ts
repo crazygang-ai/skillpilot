@@ -1,3 +1,4 @@
+import log from 'electron-log'
 import * as networkProvider from './network-session-provider'
 import { GITHUB_RAW_BASE, GITHUB_API_BASE, SKILLS_SH_BASE, CONTENT_CACHE_TTL_MS } from '../utils/constants'
 
@@ -9,6 +10,22 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>()
 
 const HTML_PREFIX = '<!-- HTML -->'
+
+let githubApiRateLimitResetAt = 0
+
+function isGitHubApiRateLimited(): boolean {
+  return Date.now() < githubApiRateLimitResetAt
+}
+
+function updateRateLimitState(headers: Record<string, string>): void {
+  const remaining = headers['x-ratelimit-remaining']
+  const reset = headers['x-ratelimit-reset']
+  if (remaining === '0' && reset) {
+    githubApiRateLimitResetAt = Number(reset) * 1000
+    log.warn(`GitHub API rate limit exhausted, resets at ${new Date(githubApiRateLimitResetAt).toISOString()}`)
+  }
+}
+
 
 /**
  * Fetch SKILL.md content. Strategy:
@@ -36,8 +53,8 @@ export async function fetchContent(source: string, skillId: string): Promise<str
     )
     cache.set(cacheKey, { content, timestamp: Date.now() })
     return content
-  } catch {
-    // All candidates failed
+  } catch (err) {
+    log.warn(`All GitHub raw URL candidates failed for ${source}/${skillId}:`, err instanceof AggregateError ? err.errors.map((e: Error) => e.message) : err)
   }
 
   // Strategy 2: skills.sh RSC payload (HTML)
@@ -103,6 +120,11 @@ async function fetchFromSkillsSh(source: string, skillId: string): Promise<strin
 }
 
 async function discoverViaTreeAPI(source: string, skillId: string): Promise<string | null> {
+  if (isGitHubApiRateLimited()) {
+    log.warn(`Skipping GitHub Tree API for ${source}/${skillId}: rate limited until ${new Date(githubApiRateLimitResetAt).toISOString()}`)
+    return null
+  }
+
   for (const branch of ['main', 'master']) {
     try {
       const url = `${GITHUB_API_BASE}/repos/${source}/git/trees/${branch}?recursive=1`
@@ -110,12 +132,21 @@ async function discoverViaTreeAPI(source: string, skillId: string): Promise<stri
         headers: { Accept: 'application/vnd.github.v3+json' },
         timeout: 15000,
       })
+
+      updateRateLimitState(res.headers)
+
+      if (res.status === 429 || res.status === 403) {
+        const reset = res.headers['x-ratelimit-reset']
+        if (reset) githubApiRateLimitResetAt = Number(reset) * 1000
+        log.warn(`GitHub API rate limited (${res.status}) for ${source}/${skillId}`)
+        return null
+      }
+
       if (!res.ok) continue
 
       const data = (await res.json()) as { tree?: Array<{ path: string; type: string }> }
       const tree = data.tree ?? []
 
-      // Find SKILL.md that matches the skillId
       const match = tree.find(
         (node) =>
           node.type === 'blob' &&
@@ -130,7 +161,8 @@ async function discoverViaTreeAPI(source: string, skillId: string): Promise<stri
           return await contentRes.text()
         }
       }
-    } catch {
+    } catch (err) {
+      log.warn(`GitHub Tree API error for ${source}/${skillId} (${branch}):`, err)
       continue
     }
   }

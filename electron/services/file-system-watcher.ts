@@ -22,9 +22,10 @@ export class FileSystemWatcher extends EventEmitter {
     if (this.watchedPaths.length === 0) return
 
     this.watcher = chokidar.watch(this.watchedPaths, {
-      depth: 1,
+      depth: 3,
       ignoreInitial: true,
       ignorePermissionErrors: true,
+      ignored: /(^|[/\\])(node_modules|\.git)([/\\]|$)/,
     })
 
     this.watcher.on('all', () => {

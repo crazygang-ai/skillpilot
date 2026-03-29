@@ -90,8 +90,26 @@ export class SkillUpdateService {
       }
 
       const destDir = skill.canonicalPath
-      await fsPromises.rm(destDir, { recursive: true, force: true })
-      await copyDirectoryWithoutSymlinks(sourceDir, destDir)
+      const tempDir = destDir + '.new'
+      const backupDir = destDir + '.bak'
+
+      await fsPromises.rm(tempDir, { recursive: true, force: true })
+      await fsPromises.rm(backupDir, { recursive: true, force: true })
+      await copyDirectoryWithoutSymlinks(sourceDir, tempDir)
+
+      try {
+        if (await pathExists(destDir)) {
+          await fsPromises.rename(destDir, backupDir)
+        }
+        await fsPromises.rename(tempDir, destDir)
+        await fsPromises.rm(backupDir, { recursive: true, force: true }).catch(() => {})
+      } catch (swapErr) {
+        if (await pathExists(backupDir) && !(await pathExists(destDir))) {
+          await fsPromises.rename(backupDir, destDir)
+        }
+        await fsPromises.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+        throw swapErr
+      }
 
       const treeHash = await safeGetTreeHash(sourceDir, repoDir)
       const commitHash = await safeGetCommitHash(repoDir)

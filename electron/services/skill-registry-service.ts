@@ -1,3 +1,4 @@
+import log from 'electron-log'
 import { RegistrySkill, LeaderboardCategory, LeaderboardResult } from '../../shared/types'
 import * as networkProvider from './network-session-provider'
 import { SKILLS_SH_BASE, REGISTRY_CACHE_TTL_MS } from '../utils/constants'
@@ -62,27 +63,21 @@ export async function leaderboard(category: LeaderboardCategory): Promise<Leader
   return result
 }
 
-function parseLeaderboardHTML(html: string): LeaderboardResult {
-  // skills.sh uses Next.js App Router with RSC flight payload
-  // Data is double-escaped: \\"initialSkills\\":[...],\\"totalSkills\\":N
+export function parseLeaderboardHTML(html: string): LeaderboardResult {
   const marker = '\\"initialSkills\\":'
   const idx = html.indexOf(marker)
   if (idx === -1) return { skills: [], totalCount: 0 }
 
   try {
     const start = idx + marker.length
-    let depth = 0
-    let end = start
-    for (let i = start; i < html.length; i++) {
-      if (html[i] === '[') depth++
-      else if (html[i] === ']') {
-        depth--
-        if (depth === 0) { end = i + 1; break }
-      }
+    const rawChunk = extractDoubleEscapedArray(html, start)
+    if (!rawChunk) {
+      log.warn('Could not extract initialSkills array from RSC payload')
+      return { skills: [], totalCount: 0 }
     }
 
-    const chunk = html.slice(start, end).replace(/\\"/g, '"')
-    const rawSkills = JSON.parse(chunk) as Array<Record<string, unknown>>
+    const decoded = decodeDoubleEscapedJson(rawChunk)
+    const rawSkills = JSON.parse(decoded) as Array<Record<string, unknown>>
 
     const totalMatch = html.match(/\\"totalSkills\\":(\d+)/)
     const totalCount = totalMatch ? Number(totalMatch[1]) : rawSkills.length
@@ -98,7 +93,66 @@ function parseLeaderboardHTML(html: string): LeaderboardResult {
     }))
 
     return { skills, totalCount }
-  } catch {
+  } catch (err) {
+    log.warn('Failed to parse leaderboard RSC payload:', err)
     return { skills: [], totalCount: 0 }
   }
+}
+
+/**
+ * Single-pass state machine that extracts a JSON array from a payload where
+ * the content is a JSON-stringified string body (the inside of a
+ * JSON.stringify'd value — "Model B" / full JSON string escaping).
+ *
+ * Only two 2-char escape sequences matter at the payload level:
+ *   \\   → literal backslash (skip both chars)
+ *   \"   → literal quote = inner-JSON string delimiter
+ *
+ * No `escaped` state is needed — `\\` is always consumed as an atomic pair,
+ * so `\\\"` is correctly split as `\\` + `\"` (escaped-backslash then
+ * string-terminator), never mis-read as `\` + `\"` (escape-prefix then
+ * escaped-quote).
+ */
+function extractDoubleEscapedArray(html: string, start: number): string | null {
+  if (html[start] !== '[') {
+    log.warn(`Expected '[' at RSC payload offset ${start}, got '${html[start]}'`)
+    return null
+  }
+
+  let depth = 0
+  let inString = false
+  let i = start
+
+  while (i < html.length) {
+    if (inString) {
+      if (html[i] === '\\' && html[i + 1] === '\\') {
+        i += 2
+      } else if (html[i] === '\\' && html[i + 1] === '"') {
+        inString = false
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      if (html[i] === '\\' && html[i + 1] === '"') {
+        inString = true
+        i += 2
+      } else if (html[i] === '[') {
+        depth++
+        i += 1
+      } else if (html[i] === ']') {
+        depth--
+        if (depth === 0) return html.slice(start, i + 1)
+        i += 1
+      } else {
+        i += 1
+      }
+    }
+  }
+
+  return null
+}
+
+function decodeDoubleEscapedJson(rawChunk: string): string {
+  return JSON.parse(`"${rawChunk}"`) as string
 }

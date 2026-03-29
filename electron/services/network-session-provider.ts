@@ -26,6 +26,7 @@ interface FetchOptions {
 interface FetchResponse {
   status: number
   ok: boolean
+  headers: Record<string, string>
   text: () => Promise<string>
   json: () => Promise<unknown>
 }
@@ -107,7 +108,7 @@ export async function fetch(url: string, options: FetchOptions = {}): Promise<Fe
     if (agent) reqOptions.agent = agent
 
     const req = mod.request(url, reqOptions, (res) => {
-      let data = ''
+      const chunks: Buffer[] = []
       let received = 0
 
       res.on('data', (chunk: Buffer) => {
@@ -117,13 +118,21 @@ export async function fetch(url: string, options: FetchOptions = {}): Promise<Fe
           reject(new Error(`Response exceeded ${maxBytes} bytes limit: ${url}`))
           return
         }
-        data += chunk.toString()
+        chunks.push(chunk)
       })
       res.on('end', () => {
+        const data = Buffer.concat(chunks).toString('utf-8')
         const status = res.statusCode ?? 0
+        const headers: Record<string, string> = {}
+        if (res.headers) {
+          for (const [key, value] of Object.entries(res.headers)) {
+            if (typeof value === 'string') headers[key] = value
+          }
+        }
         resolve({
           status,
           ok: status >= 200 && status < 300,
+          headers,
           text: async () => data,
           json: async () => JSON.parse(data),
         })

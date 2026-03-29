@@ -9,6 +9,7 @@ import RegistryBrowser from '@/views/RegistryBrowser'
 import SettingsModal from '@/views/SettingsModal'
 import SkillEditorView from '@/views/SkillEditorView'
 import Notifications from '@/components/ui/Notifications'
+import ViewErrorBoundary from '@/components/ui/ViewErrorBoundary'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,18 +38,31 @@ function MainContent() {
   return (
     <>
       <div className="flex-1 overflow-hidden">
-        {currentView === 'dashboard' && <Dashboard />}
-        {currentView === 'registry' && <RegistryBrowser />}
-        {currentView === 'settings' && <SettingsModal />}
+        {currentView === 'dashboard' && (
+          <ViewErrorBoundary viewName="Dashboard">
+            <Dashboard />
+          </ViewErrorBoundary>
+        )}
+        {currentView === 'registry' && (
+          <ViewErrorBoundary viewName="Registry">
+            <RegistryBrowser />
+          </ViewErrorBoundary>
+        )}
+        {currentView === 'settings' && (
+          <ViewErrorBoundary viewName="Settings">
+            <SettingsModal />
+          </ViewErrorBoundary>
+        )}
       </div>
 
-      {/* Full-screen editor overlay — only triggered by Edit button */}
       {editingSkillId && (
         <div className="fixed inset-0 z-40 bg-bg">
-          <SkillEditorView
-            skillId={editingSkillId}
-            onClose={() => setEditingSkillId(null)}
-          />
+          <ViewErrorBoundary viewName="Skill Editor">
+            <SkillEditorView
+              skillId={editingSkillId}
+              onClose={() => setEditingSkillId(null)}
+            />
+          </ViewErrorBoundary>
         </div>
       )}
     </>

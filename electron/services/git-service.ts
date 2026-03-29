@@ -2,6 +2,7 @@ import { execFile } from 'child_process'
 import fsPromises from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import log from 'electron-log'
 
 const TEMP_BASE = path.join(os.tmpdir(), 'skillpilot-repos')
 
@@ -27,29 +28,51 @@ export async function isGitAvailable(): Promise<boolean> {
   }
 }
 
+const KNOWN_GIT_HOSTS = ['github.com', 'gitlab.com', 'bitbucket.org']
+
 export function normalizeRepoURL(input: string): string {
   let url = input.trim()
 
-  // owner/repo format
+  // owner/repo shorthand — GitHub only
   if (/^[\w.-]+\/[\w.-]+$/.test(url)) {
     return `https://github.com/${url}.git`
   }
 
-  // HTTPS without .git
-  if (url.startsWith('https://github.com/') && !url.endsWith('.git')) {
-    url = url.replace(/\/$/, '') + '.git'
+  // HTTPS without .git for known hosts
+  if (!url.endsWith('.git')) {
+    const isKnownHost = KNOWN_GIT_HOSTS.some(host => url.includes(`://${host}/`) || url.includes(`@${host}:`))
+    if (isKnownHost) {
+      url = url.replace(/\/$/, '') + '.git'
+    }
   }
 
   return url
 }
 
 export function extractOwnerRepo(repoUrl: string): string {
-  const match = repoUrl.match(/github\.com[/:](.+?)(?:\.git)?$/)
+  const match = repoUrl.match(/(?:github\.com|gitlab\.com|bitbucket\.org)[/:](.+?)(?:\.git)?$/)
   return match ? match[1] : repoUrl
 }
 
+const inflightClones = new Map<string, Promise<string>>()
+
 export async function shallowClone(repoURL: string): Promise<string> {
   const normalized = normalizeRepoURL(repoURL)
+
+  const inflight = inflightClones.get(normalized)
+  if (inflight) return inflight
+
+  const promise = shallowCloneInternal(normalized)
+  inflightClones.set(normalized, promise)
+
+  try {
+    return await promise
+  } finally {
+    inflightClones.delete(normalized)
+  }
+}
+
+async function shallowCloneInternal(normalized: string): Promise<string> {
   const repoName = extractOwnerRepo(normalized).replace(/\//g, '_')
   const destDir = path.join(TEMP_BASE, repoName)
 
@@ -61,8 +84,20 @@ export async function shallowClone(repoURL: string): Promise<string> {
     try {
       await exec('git', ['pull', '--ff-only'], destDir)
       return destDir
-    } catch {
-      await fsPromises.rm(destDir, { recursive: true, force: true })
+    } catch (pullErr) {
+      log.warn(`git pull failed for ${destDir}:`, (pullErr as Error).message)
+      const staleDir = destDir + '.stale'
+      await fsPromises.rm(staleDir, { recursive: true, force: true }).catch(() => {})
+      await fsPromises.rename(destDir, staleDir)
+      try {
+        await exec('git', ['clone', '--depth', '1', normalized, destDir])
+        await fsPromises.rm(staleDir, { recursive: true, force: true }).catch(() => {})
+        return destDir
+      } catch (cloneErr) {
+        log.warn(`Re-clone also failed for ${normalized}, falling back to stale cache:`, (cloneErr as Error).message)
+        await fsPromises.rename(staleDir, destDir)
+        return destDir
+      }
     }
   }
 

@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events'
-import fs from 'fs'
 import fsPromises from 'fs/promises'
 import path from 'path'
 import log from 'electron-log'
@@ -182,8 +181,13 @@ export class SkillManager extends EventEmitter {
     const filePath = path.join(skill.canonicalPath, 'SKILL.md')
 
     const tmpPath = filePath + '.tmp'
-    await fsPromises.writeFile(tmpPath, content)
-    fs.renameSync(tmpPath, filePath)
+    try {
+      await fsPromises.writeFile(tmpPath, content)
+      await fsPromises.rename(tmpPath, filePath)
+    } catch (err) {
+      await fsPromises.rm(tmpPath, { force: true }).catch(() => {})
+      throw err
+    }
 
     await this.refresh()
   }

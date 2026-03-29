@@ -42,7 +42,7 @@ export async function checkSkillUpdate(skill: Skill): Promise<SkillUpdateCheckRe
   const remoteTreeHash = await gitService.getTreeHash(skillFolderPath, repoDir)
   const remoteCommitHash = await gitService.getCommitHash(repoDir)
 
-  const lockHash = skill.lockEntry.skillFolderHash.trim()
+  const lockHash = (skill.lockEntry.skillFolderHash ?? '').trim()
   const localTreeHash = lockHash || await computeLocalGitTreeHash(skill.canonicalPath)
   if (!localTreeHash) {
     return {
