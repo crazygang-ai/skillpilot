@@ -154,6 +154,6 @@ console.log(`
   What happens next:
   1. CI runs typecheck + test + build (main push)
   2. Release workflow builds .dmg/.zip and creates draft release (tag push)
-  3. Go to https://github.com/CrazyGang97/skillpilot/releases
+  3. Go to https://github.com/crazygang-ai/skillpilot/releases
      → Edit draft → Write release notes → Publish
 `)

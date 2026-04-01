@@ -2,7 +2,7 @@
 
 *The desktop app for managing AI code agent skills.*
 
-[![CI](https://github.com/CrazyGang97/skillpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/CrazyGang97/skillpilot/actions/workflows/ci.yml)
+[![CI](https://github.com/crazygang-ai/skillpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/crazygang-ai/skillpilot/actions/workflows/ci.yml)
 [![Electron](https://img.shields.io/badge/Electron-41-47848F?logo=electron)](https://www.electronjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -42,7 +42,7 @@
 
 ### Download (Recommended)
 
-Download the latest `.dmg` or `.zip` from [GitHub Releases](https://github.com/CrazyGang97/skillpilot/releases):
+Download the latest `.dmg` or `.zip` from [GitHub Releases](https://github.com/crazygang-ai/skillpilot/releases):
 
 1. Download `SkillPilot-vX.Y.Z.dmg`
 2. Open the `.dmg` and drag `SkillPilot.app` to `/Applications/`
@@ -58,7 +58,7 @@ Automatic in-app updates are only available in packaged release builds. New vers
 Requires Node.js 20+ and pnpm.
 
 ```bash
-git clone https://github.com/CrazyGang97/skillpilot.git
+git clone https://github.com/crazygang-ai/skillpilot.git
 cd skillpilot
 pnpm install
 pnpm build:mac
@@ -160,10 +160,10 @@ The script runs local typecheck + tests, bumps `package.json` version, commits, 
 
 ## Star History
 
-<a href="https://star-history.com/#CrazyGang97/skillpilot&Date">
+<a href="https://star-history.com/#crazygang-ai/skillpilot&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=CrazyGang97/skillpilot&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=CrazyGang97/skillpilot&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=CrazyGang97/skillpilot&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=crazygang-ai/skillpilot&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=crazygang-ai/skillpilot&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=crazygang-ai/skillpilot&type=Date" />
  </picture>
 </a>
