@@ -105,6 +105,7 @@
         "repo": "skillpilot"
       }
     ],
+    "icon": "resources/icon.icns",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

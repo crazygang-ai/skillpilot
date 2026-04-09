@@ -14,6 +14,7 @@ let appUpdater: AppUpdater | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
+    icon: path.join(__dirname, '../../../resources/icon.png'),
     width: 1200,
     height: 800,
     minWidth: 900,
@@ -75,6 +76,13 @@ if (!gotTheLock) {
 
 app.whenReady().then(async () => {
   log.info('SkillPilot starting...')
+
+  if (process.platform === 'darwin') {
+    const iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'icon.png')
+      : path.join(__dirname, '../../../resources/icon.png')
+    app.dock?.setIcon(iconPath)
+  }
 
   skillManager = new SkillManager()
   appUpdater = new AppUpdater()
