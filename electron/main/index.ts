@@ -11,6 +11,7 @@ const isDev = !app.isPackaged && process.env.NODE_ENV !== 'test'
 let mainWindow: BrowserWindow | null = null
 let skillManager: SkillManager | null = null
 let appUpdater: AppUpdater | null = null
+let cleanupIpc: (() => void) | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -88,7 +89,7 @@ app.whenReady().then(async () => {
   appUpdater = new AppUpdater()
 
   await applyProxySettingsToElectronSession()
-  setupIpcHandlers(skillManager, appUpdater)
+  cleanupIpc = setupIpcHandlers(skillManager, appUpdater)
   createWindow()
 
   try {
@@ -112,5 +113,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  cleanupIpc?.()
+  cleanupIpc = null
+  appUpdater?.destroy()
   skillManager?.destroy()
 })
