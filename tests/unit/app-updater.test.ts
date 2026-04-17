@@ -182,6 +182,7 @@ describe('AppUpdater.destroy()', () => {
     })
 
     service.destroy()
+    updater.on('error', () => {})
     const before = service.getState()
 
     updater.emit('update-available', { version: '0.1.2' })

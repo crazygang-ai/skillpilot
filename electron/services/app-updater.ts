@@ -20,6 +20,7 @@ interface AppUpdaterOptions {
 export class AppUpdater extends EventEmitter {
   private readonly updater: UpdaterLike
   private state: AppUpdateState
+  private disposed = false
 
   constructor(options: AppUpdaterOptions = {}) {
     super()
@@ -142,6 +143,13 @@ export class AppUpdater extends EventEmitter {
     }
 
     this.updater.quitAndInstall()
+  }
+
+  destroy(): void {
+    if (this.disposed) return
+    this.disposed = true
+    this.updater.removeAllListeners()
+    this.removeAllListeners()
   }
 
   private ensureSupported(): void {
