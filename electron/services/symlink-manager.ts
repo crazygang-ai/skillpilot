@@ -3,7 +3,6 @@ import path from 'path'
 import log from 'electron-log'
 import { AgentType, SkillInstallation, InheritedSource } from '../../shared/types'
 import { AGENT_CONFIGS } from '../types/agent-config'
-import { SHARED_SKILLS_DIR } from '../utils/constants'
 
 async function pathExists(p: string): Promise<boolean> {
   try { await fsPromises.access(p); return true } catch { return false }

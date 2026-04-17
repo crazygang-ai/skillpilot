@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isBuiltinSkill, matchesOwnershipFilter } from '../../src/components/skill/skill-ownership'
-import type { Skill } from '../../shared/types'
+import { AgentType, type Skill } from '../../shared/types'
 
 function makeSkill(overrides: {
   isInherited?: boolean
@@ -16,7 +16,7 @@ function makeSkill(overrides: {
     scope: { kind: 'sharedGlobal' },
     installations: [
       {
-        agentType: 'claude' as any,
+        agentType: AgentType.CLAUDE,
         path: '/agent/skills/test',
         isSymlink: true,
         isInherited: overrides.isInherited ?? false,

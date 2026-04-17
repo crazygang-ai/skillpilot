@@ -1,7 +1,7 @@
 import fsPromises from 'fs/promises'
 import path from 'path'
 import log from 'electron-log'
-import { Skill, SkillScope, AgentType, SkillInstallation } from '../../shared/types'
+import { Skill, SkillScope, SkillInstallation } from '../../shared/types'
 import { AGENT_CONFIGS } from '../types/agent-config'
 import { SHARED_SKILLS_DIR } from '../utils/constants'
 import * as skillMDParser from './skill-md-parser'

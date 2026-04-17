@@ -17,7 +17,7 @@ describe('CommitHashCache', () => {
 
     // Update the mock to point to current TEST_DIR
     const constants = await import('../../electron/utils/constants')
-    ;(constants as any).CACHE_FILE_PATH = TEST_CACHE_PATH
+    ;(constants as { CACHE_FILE_PATH: string }).CACHE_FILE_PATH = TEST_CACHE_PATH
 
     // Reset module cache so commit-hash-cache re-reads the constants
     vi.resetModules()

@@ -36,7 +36,7 @@ describe('agent-constants', () => {
     })
 
     it('each agent display name is human-readable (contains uppercase or space)', () => {
-      for (const [key, name] of Object.entries(AGENT_DISPLAY_NAMES)) {
+      for (const name of Object.values(AGENT_DISPLAY_NAMES)) {
         expect(name).toMatch(/[A-Z\s]/)
       }
     })
