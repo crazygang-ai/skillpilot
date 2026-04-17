@@ -21,6 +21,7 @@ interface NotificationState {
 }
 
 let nextId = 0
+const timers = new Map<string, ReturnType<typeof setTimeout>>()
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
@@ -38,15 +39,23 @@ export const useNotificationStore = create<NotificationState>((set) => ({
 
     if (!notification.persistent) {
       const delay = action ? 12000 : 4000
-      setTimeout(() => {
+      const handle = setTimeout(() => {
+        timers.delete(id)
         set((state) => ({
           notifications: state.notifications.filter((n) => n.id !== id),
         }))
       }, delay)
+      timers.set(id, handle)
     }
   },
-  removeNotification: (id) =>
+  removeNotification: (id) => {
+    const handle = timers.get(id)
+    if (handle) {
+      clearTimeout(handle)
+      timers.delete(id)
+    }
     set((state) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
-    })),
+    }))
+  },
 }))
