@@ -156,3 +156,71 @@ describe('AppUpdater', () => {
     expect(service.getState().progress).toBeUndefined()
   })
 })
+
+describe('AppUpdater.destroy()', () => {
+  it('是幂等的,重复 destroy 只清理一次', () => {
+    const updater = new FakeUpdater()
+    const removeSpy = vi.spyOn(updater, 'removeAllListeners')
+    const service = new AppUpdater({
+      currentVersion: '0.1.1',
+      isPackaged: true,
+      updater,
+    })
+
+    service.destroy()
+    service.destroy()
+
+    expect(removeSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('destroy 后 updater 事件不再改变 state', () => {
+    const updater = new FakeUpdater()
+    const service = new AppUpdater({
+      currentVersion: '0.1.1',
+      isPackaged: true,
+      updater,
+    })
+
+    service.destroy()
+    const before = service.getState()
+
+    updater.emit('update-available', { version: '0.1.2' })
+    updater.emit('download-progress', {
+      percent: 42,
+      bytesPerSecond: 1000,
+      transferred: 420,
+      total: 1000,
+    })
+    updater.emit('error', new Error('boom'))
+
+    expect(service.getState()).toEqual(before)
+  })
+
+  it('destroy 后自身订阅者不再被调用', () => {
+    const updater = new FakeUpdater()
+    const service = new AppUpdater({
+      currentVersion: '0.1.1',
+      isPackaged: true,
+      updater,
+    })
+    const spy = vi.fn()
+    service.on('stateChanged', spy)
+
+    service.destroy()
+
+    updater.emit('update-available', { version: '0.1.2' })
+
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('unsupported build 也可以安全 destroy', () => {
+    const updater = new FakeUpdater()
+    const service = new AppUpdater({
+      currentVersion: '0.1.1',
+      isPackaged: false,
+      updater,
+    })
+
+    expect(() => service.destroy()).not.toThrow()
+  })
+})
