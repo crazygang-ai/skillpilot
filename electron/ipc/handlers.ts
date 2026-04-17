@@ -4,7 +4,7 @@ import { AppUpdater } from '../services/app-updater'
 import * as registryService from '../services/skill-registry-service'
 import * as contentFetcher from '../services/skill-content-fetcher'
 import { getProxySettings, setProxySettings } from '../services/proxy-settings'
-import { type LeaderboardCategory } from '../../shared/types'
+import { type LeaderboardCategory, type AppUpdateState } from '../../shared/types'
 import { IPC_CHANNELS } from '../../shared/ipc'
 import {
   assertAllowedPath,
@@ -18,7 +18,7 @@ import {
   validateSkillSaveArgs,
 } from './validators'
 
-export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpdater): void {
+export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpdater): () => void {
   // ---- Agent ----
   ipcMain.handle(IPC_CHANNELS.AGENT.DETECT, async () => {
     await skillManager.refresh()
@@ -155,16 +155,17 @@ export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpda
   })
 
   // ---- Forward events to renderer ----
-  skillManager.on('watcherChanged', () => {
+  let stateChangedTimer: ReturnType<typeof setTimeout> | undefined
+
+  const onWatcherChanged = (): void => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.WATCHER.ON_CHANGE)
       }
     }
-  })
+  }
 
-  let stateChangedTimer: ReturnType<typeof setTimeout> | undefined
-  skillManager.on('stateChanged', () => {
+  const onStateChanged = (): void => {
     if (stateChangedTimer) clearTimeout(stateChangedTimer)
     stateChangedTimer = setTimeout(() => {
       for (const win of BrowserWindow.getAllWindows()) {
@@ -173,21 +174,37 @@ export function setupIpcHandlers(skillManager: SkillManager, appUpdater: AppUpda
         }
       }
     }, 100)
-  })
+  }
 
-  skillManager.on('refreshFailed', (message: string) => {
+  const onRefreshFailed = (message: string): void => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.SKILL.ON_REFRESH_FAILED, message)
       }
     }
-  })
+  }
 
-  appUpdater.on('stateChanged', (state) => {
+  const onUpdaterState = (state: AppUpdateState): void => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC_CHANNELS.UPDATER.ON_STATE_CHANGED, state)
       }
     }
-  })
+  }
+
+  skillManager.on('watcherChanged', onWatcherChanged)
+  skillManager.on('stateChanged', onStateChanged)
+  skillManager.on('refreshFailed', onRefreshFailed)
+  appUpdater.on('stateChanged', onUpdaterState)
+
+  return (): void => {
+    if (stateChangedTimer) {
+      clearTimeout(stateChangedTimer)
+      stateChangedTimer = undefined
+    }
+    skillManager.off('watcherChanged', onWatcherChanged)
+    skillManager.off('stateChanged', onStateChanged)
+    skillManager.off('refreshFailed', onRefreshFailed)
+    appUpdater.off('stateChanged', onUpdaterState)
+  }
 }
